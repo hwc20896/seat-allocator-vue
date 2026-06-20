@@ -15,6 +15,19 @@
       <button class="dropdown-item" :disabled="!isGridLoaded" @click="$emit('csv-export')">
         導出為 .csv
       </button>
+      <label class="dropdown-item file-label">
+        從 .xlsx 導入
+        <input
+          ref="xlsxInputRef"
+          type="file"
+          accept=".xlsx"
+          style="display: none"
+          @change="onXLSXImport"
+        />
+      </label>
+      <button class="dropdown-item" :disabled="!isGridLoaded" @click="$emit('xlsx-export')">
+        導出為 .xlsx
+      </button>
     </DropDownMenu>
 
     <!-- Colors Configuration -->
@@ -73,7 +86,9 @@ defineProps<{
 
 const emit = defineEmits<{
   'csv-import': [file: File]
+  'xlsx-import': [file: File]
   'csv-export': []
+  'xlsx-export': []
   'color-import': [file: File]
   'clear-colors': []
   'constraints-import': [file: File]
@@ -81,6 +96,7 @@ const emit = defineEmits<{
 }>()
 
 const csvInputRef = useTemplateRef<HTMLInputElement>('csvInputRef')
+const xlsxInputRef = useTemplateRef<HTMLInputElement>('xlsxInputRef')
 const colorInputRef = useTemplateRef<HTMLInputElement>('colorInputRef')
 const constraintsInputRef = useTemplateRef<HTMLInputElement>('constraintsInputRef')
 
@@ -95,6 +111,11 @@ const getFileFromEvent = (event: Event): File | null => {
 const onCSVImport = (event: Event) => {
   const file = getFileFromEvent(event)
   if (file) emit('csv-import', file)
+}
+
+const onXLSXImport = (event: Event) => {
+  const file = getFileFromEvent(event)
+  if (file) emit('xlsx-import', file)
 }
 
 const onColorImport = (event: Event) => {

@@ -6,6 +6,8 @@
       :has-custom-config="constraints.hasCustomConfig.value"
       @csv-import="handleCSVImport"
       @csv-export="handleCSVExport"
+      @xlsx-import="handleXLSXImport"
+      @xlsx-export="handleXLSXExport"
       @color-import="handleColorImport"
       @clear-colors="handleClearColors"
       @constraints-import="handleConstraintsImport"
@@ -16,7 +18,7 @@
       <div class="top-row-layout">
         <div class="title-group">
           <h1 class="title">座位分配系統</h1>
-          <span class="version-badge">v3.0</span>
+          <span class="version-badge">v4.0</span>
         </div>
 
         <PageNavigator
@@ -66,16 +68,20 @@ import { useGridShuffle } from '@/composables/useGridShuffle'
 import { useColorConfig } from '@/composables/useColorConfig'
 import { useConstraintsConfig } from '@/composables/useConstraintsConfig'
 import { useFileIO } from '@/composables/useFileIO'
-
-type Grid = string[][]
+import type { Grid, PointerOf } from '@/assets/wasm/alloc_algo'
+import { Position } from '@/utils/Position.ts'
 
 // ==========================================
 // Composable Instances
 // ==========================================
 const wasm = useWasm()
-const grid = useGridShuffle(wasm.wasmModule, wasm.shufflerInstance)
-const colorConfig = useColorConfig()
 const constraints = useConstraintsConfig()
+const grid = useGridShuffle(
+  wasm.wasmModule,
+  wasm.shufflerInstance,
+  () => constraints.buildWasmConfig(wasm.wasmModule.value)
+)
+const colorConfig = useColorConfig()
 const fileIO = useFileIO()
 
 // ==========================================
@@ -84,7 +90,7 @@ const fileIO = useFileIO()
 const statusText = ref('未導入')
 
 // Tagged cell for swap interaction
-const taggedCell = ref<{ row: number; col: number } | null>(null)
+const taggedCell = ref<PointerOf<Position>>(null)
 const taggedRow = computed(() => taggedCell.value?.row ?? null)
 const taggedCol = computed(() => taggedCell.value?.col ?? null)
 
@@ -134,11 +140,35 @@ const handleCSVExport = () => {
     if (!confirmChoice) return
   }
 
-  fileIO.exportCSV(
-    grid.currentGrid.value,
-    `allocated_seats_page_${grid.currentIndex.value}.csv`,
-  )
+  fileIO.exportCSV(grid.currentGrid.value, `allocated_seats_page_${grid.currentIndex.value}.csv`)
   statusText.value = `已導出至：allocated_seats_page_${grid.currentIndex.value}.csv`
+}
+
+const handleXLSXImport = async (file: File) => {
+  if (!wasm.wasmReady.value) return
+  try {
+    const parsed = await fileIO.parseXLSX(file)
+    if (parsed.length === 0) return
+    const success = grid.loadNewGrid(parsed)
+    if (success) {
+      taggedCell.value = null
+      statusText.value = `已成功導入檔案：${file.name}`
+    }
+  } catch {
+    alert('檔案讀取失敗。')
+  }
+}
+
+const handleXLSXExport = () => {
+  if (grid.currentGrid.value.length === 0) return
+
+  if (grid.showOriginal.value) {
+    const confirmChoice = confirm('這是原始名單，確定要導出嗎？\n\n建議先執行洗牌操作後再導出。')
+    if (!confirmChoice) return
+  }
+
+  fileIO.exportXLSX(grid.currentGrid.value, `allocated_seats_page_${grid.currentIndex.value}.xlsx`)
+  statusText.value = `已導出至：allocated_seats_page_${grid.currentIndex.value}.xlsx`
 }
 
 // ==========================================
@@ -169,7 +199,20 @@ const handleConstraintsImport = async (file: File) => {
     const text = await fileIO.readTextFile(file)
     const success = constraints.loadConstraints(text)
     if (success) {
-      statusText.value = `算法約束載入成功：${file.name}。請重新導入座位配置或洗牌。`
+      statusText.value = `算法約束載入成功：${file.name}。`
+
+      // Try to apply constraints immediately if wasm is ready
+      if (wasm.wasmReady.value && typeof grid.applyConfig === 'function') {
+        const cfg = constraints.buildWasmConfig(wasm.wasmModule.value)
+        const applied = grid.applyConfig(cfg, { preserveManual: true })
+        if (applied) {
+          statusText.value += ' 已套用約束。'
+        } else {
+          statusText.value += ' 套用約束失敗，請重新導入座位配置或手動洗牌。'
+        }
+      } else {
+        statusText.value += ' 請重新導入座位配置或洗牌以套用新約束。'
+      }
     }
   } catch {
     alert('JSON 算法約束檔案格式錯誤。')
@@ -208,25 +251,25 @@ const handleToggleOriginal = () => {
 // ==========================================
 // Cell Interaction (Click to Swap)
 // ==========================================
-const handleCellClick = ({ row, col }: { row: number; col: number }) => {
+const handleCellClick = (position: Position) => {
   if (grid.showOriginal.value || grid.isShuffling.value) return
 
   if (!taggedCell.value) {
-    taggedCell.value = { row, col }
-    statusText.value = `已標記單元格 [${row + 1}, ${col + 1}]，再次點擊其他格子即可進行位置交換。`
-  } else if (taggedCell.value.row === row && taggedCell.value.col === col) {
+    taggedCell.value = position
+    statusText.value = `已標記單元格 ${position.toString(true)}，再次點擊其他格子即可進行位置交換。`
+  } else if (taggedCell.value?.equals(position)) {
     taggedCell.value = null
     statusText.value = `已取消標記。`
   } else {
-    const { row: tRow, col: tCol } = taggedCell.value
-    grid.swapCells(tRow, tCol, row, col)
-    statusText.value = `已手動交換單元格：[${tRow + 1}, ${tCol + 1}] <-> [${row + 1}, ${col + 1}]`
+    const tPos = taggedCell.value
+    grid.swapCells(tPos, position)
+    statusText.value = `已手動交換單元格：${tPos} <-> ${position}`
     taggedCell.value = null
   }
 }
 
-const isCellSwapped = (row: number, col: number): boolean => {
-  return grid.isCellManuallyModified(row, col)
+const isCellSwapped = (pos: Position): boolean => {
+  return grid.isCellManuallyModified(pos)
 }
 </script>
 
