@@ -1,3 +1,21 @@
+//  using types: <utiltypes.hpp>
+
+export type ArrayOf<T> = T[];
+export type GridOf<T> = T[][];
+export type PointerOf<T> = T | null;
+export type PairOf<T, U> = [T, U];
+
+export type Grid = GridOf<string>;
+export type ForbiddenPairType = PairOf<string, string>;
+
+/*  Defined in @/utils/Position.ts
+export interface Position{
+  row: number;
+  col: number;
+}
+*/
+
+//  constraints: <constraints.hpp>
 export interface ForceRow {name: string, rowIdx: number}
 
 export interface ForceCol {name: string, colIdx: number}
@@ -16,7 +34,7 @@ export interface ShuffleConfig {
   allowFixedPoints: boolean;
   allowOriginalNeighbors: boolean;
   diagonalsAreNeighbors: boolean;
-  customForbiddenPairs: [string, string][];
+  customForbiddenPairs: ForbiddenPairType[];
   constraints: Constraint[];
 
   //  constexpr-able
@@ -37,18 +55,20 @@ export interface ShuffleConfigConstructor{
   new (): ShuffleConfig;
 }
 
+
+//  main algorithm: <algorithm.hpp>
 export interface GridShuffler {
   getSize(): number
-  setGrid(grid: string[][]): boolean
-  getOriginalGrid(): string[][]
-  getGrid(): string[][]
-  getGridAt(index: number): string[][]
-  getGridByIndex(index: number): string[][]
+  setGrid(grid: Grid): boolean
+  getOriginalGrid(): Grid
+  getGrid(): Grid
+  getGridAt(index: number): Grid
+  getGridByIndex(index: number): Grid
   shuffle(): void
-  delete(): void  //  ~GridShuffler();
+  delete(): void //  ~GridShuffler();
   validateResult(): boolean
   clearShuffledGrids(): void
-  getAllGrids(): string[][][]
+  getAllGrids(): ArrayOf<Grid>
 }
 
 export interface GridShufflerConstructor {
@@ -59,10 +79,7 @@ export interface GridShufflerConstructor {
 export interface ModuleExports {
   ShuffleConfig: ShuffleConfigConstructor
   GridShuffler: GridShufflerConstructor
-  shuffleGrid(grid: string[][]): string[][]
+  shuffleGrid(grid: Grid): Grid
 }
-
-export type ModuleExportsPointer = ModuleExports | null
-export type GridShufflerPointer = GridShuffler | null
 
 export default function Module(): Promise<ModuleExports>

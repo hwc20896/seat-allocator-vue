@@ -8,8 +8,8 @@
               :text="cell"
               :color="getCellColor(cell)"
               :is-tagged="taggedRow === rIdx && taggedCol === cIdx"
-              :is-swapped="!isShuffling && isCellSwapped(rIdx, cIdx)"
-              @click="$emit('cell-click', { row: rIdx, col: cIdx })"
+              :is-swapped="!isShuffling && isCellSwapped(new Position(rIdx, cIdx))"
+              @click="$emit('cell-click', new Position(rIdx, cIdx))"
             />
           </td>
         </tr>
@@ -20,8 +20,8 @@
 
 <script setup lang="ts">
 import GridCell from './GridCell.vue'
-
-type Grid = string[][]
+import type { Grid } from '@/assets/wasm/alloc_algo'
+import { Position } from '@/utils/Position.ts'
 
 defineProps<{
   grid: Grid
@@ -29,11 +29,11 @@ defineProps<{
   taggedRow: number | null
   taggedCol: number | null
   getCellColor: (text: string) => string
-  isCellSwapped: (row: number, col: number) => boolean
+  isCellSwapped: (position: Position) => boolean
 }>()
 
 defineEmits<{
-  'cell-click': [{ row: number; col: number }]
+  'cell-click': [Position]
 }>()
 </script>
 
