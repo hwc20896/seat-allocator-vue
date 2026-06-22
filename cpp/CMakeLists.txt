@@ -7,7 +7,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(spdlog CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
-find_package(OpenXLSX CONFIG REQUIRED)
 
 add_executable(alloc_algo
     wasm-bridge.cpp
@@ -22,7 +21,6 @@ target_include_directories(alloc_algo PRIVATE ${CMAKE_SOURCE_DIR}/src/)
 target_link_libraries(alloc_algo PRIVATE
     spdlog::spdlog
     nlohmann_json::nlohmann_json
-    OpenXLSX::OpenXLSX
 )
 
 if(EMSCRIPTEN)

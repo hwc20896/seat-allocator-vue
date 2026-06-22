@@ -82,7 +82,7 @@ void GridShuffler::shuffle() {
 
     const auto startTime = high_resolution_clock::now();
 
-    #if defined(__EMSCRIPTEN_PTHREADS__) && (__EMSCRIPTEN_PTHREADS__ == 1)
+#if defined(__EMSCRIPTEN_PTHREADS__) && (__EMSCRIPTEN_PTHREADS__ == 1)
     // ==========================================
     // MULTITHREADED EXECUTION (Pthreads enabled)
     // ==========================================
@@ -161,8 +161,7 @@ void GridShuffler::shuffle() {
     bool found = false;
 
     // Run total attempts sequentially
-    const int totalAttempts = Constants::NUM_THREADS * Constants::ATTEMPTS_PER_THREAD;
-    for ([[maybe_unused]] const auto _ : std::views::iota(0, totalAttempts)) {
+    for ([[maybe_unused]] const auto _ : std::views::iota(0, Constants::MAX_ATTEMPTS)) {
         if (solve(assignment, usedValues, localDomainMask)) {
             auto newGrid = std::vector(rowCount, std::vector(columnCount, std::string()));
             for (int nodeIdx = 0; nodeIdx < numItems; nodeIdx++) {
@@ -268,15 +267,15 @@ void GridShuffler::initTopology() {
         }
     }
 
-    nodesByRow = std::vector<std::vector<NodeID>>(rowCount);
-    nodesByColumn = std::vector<std::vector<NodeID>>(columnCount);
+    nodesByRow = GridOf<NodeID>(rowCount);
+    nodesByColumn = GridOf<NodeID>(columnCount);
     for (const auto u : std::views::iota(0, numItems)) {
         const auto [r, c] = nodeToPos[u];
         nodesByRow[r].push_back(u);
         nodesByColumn[c].push_back(u);
     }
 
-    graph = std::vector<std::vector<NodeID>>(numItems);
+    graph = GridOf<NodeID>(numItems);
 
     for (const auto i : std::views::iota(0, numItems)) {
         const auto& [cr, cc] = nodeToPos[i];
