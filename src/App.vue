@@ -67,6 +67,8 @@ import { useGridShuffle } from '@/composables/useGridShuffle'
 import { useColorConfig } from '@/composables/useColorConfig'
 import { useConstraintsConfig } from '@/composables/useConstraintsConfig'
 import { useFileIO } from '@/composables/useFileIO'
+import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts'
+
 import type { Grid, PointerOf } from '@/assets/wasm/alloc_algo'
 import { Position } from '@/utils/Position.ts'
 
@@ -304,6 +306,11 @@ const handleCellClick = (position: Position) => {
 const isCellSwapped = (pos: Position): boolean => {
   return grid.isCellManuallyModified(pos)
 }
+
+useKeyboardShortcut('enter', () => {
+  console.debug('Enter pressed')
+  handleShuffle()
+})
 </script>
 
 <style>

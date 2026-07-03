@@ -2,25 +2,33 @@
   <div class="bottom-layout">
     <button
       class="shuffle-button"
-      :class="{ 'is-active-shuffling': isShuffling }"
-      :disabled="!isGridLoaded || isShuffling"
+      :class="{ 'is-active-shuffling': props.isShuffling }"
+      :disabled="!props.isGridLoaded || props.isShuffling"
       @click="$emit('shuffle')"
     >
-      <span v-if="isShuffling" class="spinner"></span>
-      {{ isShuffling ? '正在隨機分配洗牌...' : '開始隨機分配！' }}
+      <span v-if="props.isShuffling" class="spinner"></span>
+      {{ props.isShuffling ? '正在隨機分配洗牌...' : '開始隨機分配！' }}
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts'
+
+const props = defineProps<{
   isShuffling: boolean
   isGridLoaded: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   shuffle: []
 }>()
+
+useKeyboardShortcut('enter', () => {
+  console.debug('Enter pressed')
+  if (!props.isGridLoaded || props.isShuffling) return
+  emit('shuffle')
+})
 </script>
 
 <style scoped>

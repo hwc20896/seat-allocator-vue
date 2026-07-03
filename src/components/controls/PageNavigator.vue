@@ -2,7 +2,7 @@
   <div class="navigation-controls">
     <button
       class="tool-button"
-      :disabled="currentIndex <= 1 || isShuffling"
+      :disabled="props.currentIndex <= 1 || props.isShuffling"
       @click="$emit('navigate', -1)"
       title="前一頁"
     >
@@ -16,7 +16,7 @@
 
     <button
       class="tool-button"
-      :disabled="currentIndex >= totalPages || isShuffling"
+      :disabled="props.currentIndex >= props.totalPages || props.isShuffling"
       @click="$emit('navigate', 1)"
       title="後一頁"
     >
@@ -25,8 +25,8 @@
 
     <button
       class="push-button toggle-button"
-      :class="{ active: showOriginal }"
-      :disabled="!isGridLoaded || isShuffling"
+      :class="{ active: props.showOriginal }"
+      :disabled="!props.isGridLoaded || props.isShuffling || props.totalPages === 0"
       @click="$emit('toggle-original')"
     >
       {{ showOriginal ? '顯示當前打亂' : '顯示原始列表' }}
@@ -35,7 +35,9 @@
 </template>
 
 <script setup lang="ts">
-defineProps<{
+import { useKeyboardShortcut, SPECIAL_KEYS } from '@/composables/useKeyboardShortcuts'
+
+const props = defineProps<{
   pageLabel: string
   currentIndex: number
   totalPages: number
@@ -44,10 +46,40 @@ defineProps<{
   showOriginal: boolean
 }>()
 
-defineEmits<{
+const emit = defineEmits<{
   navigate: [step: number]
   'toggle-original': []
 }>()
+
+useKeyboardShortcut(
+  { key: SPECIAL_KEYS.PAGE_UP },
+  () => {
+    console.debug('Page Up triggered')
+    if (props.currentIndex <= 1 || props.isShuffling) return
+    emit('navigate', -1)
+  },
+  { preventDefault: true },
+)
+
+useKeyboardShortcut(
+  { key: SPECIAL_KEYS.PAGE_DOWN },
+  () => {
+    console.debug('Page Down triggered')
+    if (props.currentIndex >= props.totalPages || props.isShuffling) return
+    emit('navigate', 1)
+  },
+  { preventDefault: true },
+)
+
+useKeyboardShortcut(
+  { key: SPECIAL_KEYS.HOME },
+  () => {
+    console.debug('Home Key triggered')
+    if (!props.isGridLoaded || props.isShuffling || props.totalPages === 0) return
+    emit('toggle-original')
+  },
+  { preventDefault: true },
+)
 </script>
 
 <style scoped>

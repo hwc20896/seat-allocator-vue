@@ -22,7 +22,8 @@
     <!-- Colors Configuration -->
     <DropDownMenu label="顔色設定 (Color)">
       <label class="dropdown-item file-label">
-        導入顔色配置 (JSON)
+        導入顔色配置
+        <span class="key-shortcut-indicator">Ctrl + Shift + C</span>
         <input
           ref="colorInputRef"
           type="file"
@@ -33,17 +34,19 @@
       </label>
       <button
         class="dropdown-item"
-        :disabled="colorPresetCount === 0"
+        :disabled="props.colorPresetCount === 0"
         @click="$emit('clear-colors')"
       >
-        卸載顏色配置
+        重設
+        <span class="key-shortcut-indicator">Ctrl + Alt + C</span>
       </button>
     </DropDownMenu>
 
     <!-- Algorithmic Constraints -->
     <DropDownMenu label="算法約束 (Constraints)">
       <label class="dropdown-item file-label">
-        導入約束配置 (JSON)
+        導入約束配置
+        <span class="key-shortcut-indicator">Ctrl + Shift + K</span>
         <input
           ref="constraintsInputRef"
           type="file"
@@ -54,10 +57,11 @@
       </label>
       <button
         class="dropdown-item"
-        :disabled="!hasCustomConfig"
+        :disabled="!props.hasCustomConfig"
         @click="$emit('reset-constraints')"
       >
-        重設為默認算法
+        重設
+        <span class="key-shortcut-indicator">Ctrl + Alt + K</span>
       </button>
     </DropDownMenu>
   </header>
@@ -66,6 +70,7 @@
 <script setup lang="ts">
 import { useTemplateRef } from 'vue'
 import DropDownMenu from '@/components/common/DropDownMenu.vue'
+import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts'
 
 const props = defineProps<{
   isGridLoaded: boolean
@@ -83,8 +88,7 @@ const emit = defineEmits<{
   'reset-constraints': []
 }>()
 
-const csvInputRef = useTemplateRef<HTMLInputElement>('csvInputRef')
-const xlsxInputRef = useTemplateRef<HTMLInputElement>('xlsxInputRef')
+const gridInputRef = useTemplateRef<HTMLInputElement>('gridInputRef')
 const colorInputRef = useTemplateRef<HTMLInputElement>('colorInputRef')
 const constraintsInputRef = useTemplateRef<HTMLInputElement>('constraintsInputRef')
 
@@ -111,6 +115,39 @@ const onConstraintsImport = (event: Event) => {
   const file = getFileFromEvent(event)
   if (file) emit('constraints-import', file)
 }
+
+useKeyboardShortcut('ctrl+i', () => {
+  console.debug('ctrl+i triggered')
+  gridInputRef.value?.click()
+})
+
+useKeyboardShortcut('ctrl+e', () => {
+  console.debug('ctrl+e triggered')
+  if (!props.isGridLoaded) return
+  emit('grid-export')
+})
+
+useKeyboardShortcut('ctrl+shift+c', () => {
+  console.debug('ctrl+shift+c triggered')
+  colorInputRef.value?.click()
+})
+
+useKeyboardShortcut('ctrl+alt+c', () => {
+  console.debug('ctrl+alt+c triggered')
+  if (props.colorPresetCount === 0) return
+  emit('clear-colors')
+})
+
+useKeyboardShortcut('ctrl+shift+k', () => {
+  console.debug('ctrl+shift+k triggered')
+  constraintsInputRef.value?.click()
+})
+
+useKeyboardShortcut('ctrl+alt+k', () => {
+  console.debug('ctrl+alt+k triggered')
+  if (!props.hasCustomConfig) return
+  emit('reset-constraints')
+})
 </script>
 
 <style scoped>
@@ -153,5 +190,21 @@ const onConstraintsImport = (event: Event) => {
 
 .file-label {
   margin: 0;
+}
+
+.key-shortcut-indicator {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 6px;
+  border: 1px solid rgba(79, 70, 229, 0.7);
+  border-radius: 4px;
+  background-color: #eef2ff;
+  color: #4f46e5;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.dropdown-item[disabled] .key-shortcut-indicator {
+  opacity: 0.3;
 }
 </style>
