@@ -3,24 +3,23 @@
 #include <string>
 #include <vector>
 
-#include "src/algorithms/algorithm.hpp"
-#include "src/algorithms/constraints.hpp"
-#include "src/utils/utils.hpp"
-#include "src/utils/utiltypes.hpp"
+import Algorithm.Constraints;
+import Algorithm.Shuffler;
+import Algorithm.Utils;
 
 using namespace emscripten;
 
 Grid js_array_to_cpp_grid(const val& js_grid) {
     Grid cpp_grid;
-    const auto row_count = js_grid["length"].as<unsigned>();
+    const auto row_count = js_grid["length"].as<uint32_t>();
 
-    for (unsigned r = 0; r < row_count; ++r) {
+    for (uint32_t r = 0; r < row_count; ++r) {
         std::vector<std::string> cpp_row;
         val js_row = js_grid[r];
-        const auto col_count = js_row["length"].as<unsigned>();
+        const auto col_count = js_row["length"].as<uint32_t>();
 
         cpp_row.reserve(col_count);
-        for (unsigned c = 0; c < col_count; ++c) {
+        for (uint32_t c = 0; c < col_count; ++c) {
             cpp_row.push_back(js_row[c].as<std::string>());
         }
         cpp_grid.push_back(cpp_row);

@@ -4,23 +4,40 @@ project(seat_allocator_vue_algo LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 
 find_package(spdlog CONFIG REQUIRED)
-find_package(nlohmann_json CONFIG REQUIRED)
 
 add_executable(alloc_algo
     wasm-bridge.cpp
-    src/algorithms/algorithm.cpp
-    src/algorithms/constraints.cpp
-    src/utils/dynamic_bitset.cpp
-    src/utils/utils.cpp
+)
+
+target_sources(alloc_algo PRIVATE
+    FILE_SET CXX_MODULES
+    FILES
+    src/constraints.cppm
+    src/dynamic-bitset.cppm
+    src/shuffler.cppm
+    src/utils.cppm
 )
 
 target_include_directories(alloc_algo PRIVATE ${CMAKE_SOURCE_DIR}/src/)
 
 target_link_libraries(alloc_algo PRIVATE
     spdlog::spdlog
-    nlohmann_json::nlohmann_json
+)
+
+target_precompile_headers(alloc_algo PRIVATE
+    <algorithm>
+    <unordered_map>
+    <random>
+    <optional>
+    <utility>
+    <chrono>
+    <format>
+    <ranges>
+    <limits>
+    <array>
 )
 
 if(EMSCRIPTEN)
@@ -33,6 +50,7 @@ if(EMSCRIPTEN)
     target_compile_options(alloc_algo PRIVATE
         -O3
         -fexceptions
+        -sASYNCIFY
     )
 
     # Link options
@@ -42,6 +60,7 @@ if(EMSCRIPTEN)
         "-sEXPORT_ES6=1"
         "-sASSERTIONS=1" # Useful for debugging crashes
         "-lembind"        # Required for embind support
+        "-sASYNCIFY_STACK_SIZE=32768"
     )
 
     if(NOT DEFINED CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Release")

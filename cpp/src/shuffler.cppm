@@ -1,16 +1,194 @@
-#include "algorithm.hpp"
+module;
 
+#include <algorithm>
+#include <unordered_map>
+#include <random>
+#include <optional>
 #include <utility>
 #include <chrono>
 #include <format>
 #include <ranges>
-#include <algorithm>
 #include <limits>
 #include <array>
-#include <spdlog/spdlog.h>
 #include <future>
 
-#include "utils/constants.hpp"
+#include <spdlog/spdlog.h>
+#include <emscripten.h>
+
+export module Algorithm.Shuffler;
+
+import Algorithm.Constraints;
+import Algorithm.Utils;
+import Algorithm.DynamicBitset;
+
+export class GridShuffler final {
+    public:
+        /**
+         * @brief Constructs a GridShuffler with optional configuration.
+         * @param config Configuration options controlling shuffle behavior.
+         */
+        explicit GridShuffler(ShuffleConfig config = ShuffleConfig());
+
+        /**
+         * @brief Returns the number of successfully generated shuffled grids.
+         * @return The count of shuffled grids stored internally.
+         */
+        [[nodiscard]]
+        size_t getSize() const noexcept;
+
+        /**
+         * @brief Sets the input grid and initializes internal data structures.
+         * @param grid The 2D grid containing string elements to shuffle.
+         * @return true if grid was set successfully, false if grid is empty or invalid.
+         * @throws std::invalid_argument if duplicate elements are found or constraints are unsatisfiable.
+         */
+        bool setGrid(const Grid& grid);
+
+        [[nodiscard]]
+        const Grid& getOriginalGrid() const;
+
+        /**
+         * @brief Returns the most recently generated shuffled grid.
+         * @return Reference to the last shuffled grid, or the original grid if no shuffles exist.
+         */
+        [[nodiscard]]
+        const Grid& getGrid() const;
+
+        /**
+         * @brief Generates a new shuffled grid respecting all constraints and stores it.
+         * @throws std::invalid_argument if available values are insufficient.
+         * @throws std::runtime_error if no valid shuffle is found within maximum attempts.
+         */
+        void shuffle();
+
+        /**
+         * @brief Validates the current shuffled grid against all constraints.
+         * @return true if the current grid satisfies all constraint rules, false otherwise.
+         */
+        bool validateResult();
+
+        /**
+         * @brief Clears all previously generated shuffled grids from memory.
+         */
+        void clearShuffledGrids();
+
+        /**
+         * @brief Returns all generated shuffled grids.
+         * @return Constant reference to the vector containing all shuffled grids.
+         */
+        [[nodiscard]]
+        const ArrayOf<Grid>& getAllGrids() const;
+
+        /**
+         * @brief Array subscript operator to access a specific shuffled grid by index.
+         * @param index The zero-based index of the desired shuffled grid.
+         * @return Reference to the requested grid, or the last grid if index is out of range.
+         */
+        [[nodiscard]]
+        const Grid& operator[](int index) const;
+
+        /**
+         * @brief Returns a specific shuffled grid by index.
+         * @param index The zero-based index of the desired shuffled grid.
+         * @return Reference to the requested grid, or the last grid if index is out of range.
+         */
+        [[nodiscard]]
+        const Grid& getGrid(int index) const;
+
+    private /*  variables  */:
+        using AssignmentType = ArrayOf<std::optional<ValueID>>;
+
+        size_t rowCount, columnCount;
+        Grid originalGrid;
+        ArrayOf<Grid> data;
+
+        ShuffleConfig config;
+
+        ArrayOf<Position> nodeToPos;
+        ArrayOf<DataType> idToString;
+        std::unordered_map<DataType, ValueID> stringToID;
+        Graph graph;
+
+        DynamicBitset forbiddenAdjMatrix;
+        ArrayOf<ValueID> originalValueAtNode;
+
+        int numItems;
+        int dim;
+        GridOf<bool> domainMask;
+
+        ArrayOf<Position> dirs;
+        Graph nodesByRow, nodesByColumn;
+
+        struct DynamicConstraint {
+            enum class Type {ShareCol, ShareRow} type;
+            ValueID id1, id2;
+        };
+
+        ArrayOf<DynamicConstraint> preparedDynamicConstraints;
+
+        mutable std::mt19937 rng;
+
+        static constexpr auto MAX_ATTEMPTS = 1000;
+
+    private /*  methods  */:
+        /**
+         * @brief Initializes the graph topology representing grid adjacency relationships.
+         * Maps grid positions to node IDs and builds neighbor lists based on configured directions.
+         */
+        void initTopology();
+
+        /**
+         * @brief Initializes constraint data including value mappings and forbidden adjacency matrix.
+         * Processes original neighbors and custom forbidden pairs from configuration.
+         * @throws std::invalid_argument if duplicate elements exist or constraints are invalid.
+         */
+        void initConstraints();
+
+        /**
+         * @brief Initializes domain masks for each node based on static constraints.
+         * Applies ForceRow/ForceCol and ForbidRow/ForbidCol constraints to restrict valid assignments.
+         * @throws std::invalid_argument if constraint references invalid rows or columns.
+         */
+        void initDomains();
+
+        /**
+         * @brief Checks dynamic constraints for a candidate assignment during solving.
+         * @param u The node ID being assigned.
+         * @param v The value ID being considered.
+         * @param assignment Current partial assignment state.
+         * @return true if the assignment satisfies all dynamic constraints, false otherwise.
+         */
+        bool checkDynamicConstraints(NodeID u, ValueID v, const AssignmentType& assignment) const;
+
+        /**
+         * @brief Checks if two values are forbidden to be adjacent.
+         * @param u First value ID.
+         * @param v Second value ID.
+         * @return true if the pair (u, v) is forbidden, false otherwise.
+         */
+        [[nodiscard]]
+        bool isForbidden(int u, int v) const;
+
+        /**
+         * @brief Recursive backtracking solver to find a valid assignment.
+         * Uses MRV heuristic (Most Constrained Variable) to select next node.
+         * @param assignment Current assignment state to complete.
+         * @param visited Tracks which values have been used.
+         * @param localDomainMask IDK bro. I also want to know what this does.
+         * @return true if a complete valid assignment was found, false otherwise.
+         */
+        bool solve(AssignmentType& assignment, ArrayOf<bool>& visited, GridOf<bool>& localDomainMask);
+
+        bool forwardCheck(
+            NodeID assignedNode,
+            ValueID assignedValue,
+            const AssignmentType& assignment,
+            const ArrayOf<bool>& visited,
+            GridOf<bool>& localDomainMask
+        );
+};
+
+module :private;
 
 GridShuffler::GridShuffler(ShuffleConfig config)
   : rowCount(0), columnCount(0), config(std::move(config)), forbiddenAdjMatrix(0), numItems(0), dim(0), rng(std::random_device{}())
@@ -82,86 +260,13 @@ void GridShuffler::shuffle() {
 
     const auto startTime = high_resolution_clock::now();
 
-#if defined(__EMSCRIPTEN_PTHREADS__) && (__EMSCRIPTEN_PTHREADS__ == 1)
-    // ==========================================
-    // MULTITHREADED EXECUTION (Pthreads enabled)
-    // ==========================================
-    std::atomic found{false};
-    std::mutex resultMutex;
-    Grid resultGrid;
-    std::exception_ptr exceptionPtr;
-
-    std::vector<std::future<void>> futures;
-
-    for ([[maybe_unused]] const auto t : std::views::iota(0, Constants::NUM_THREADS)) {
-        futures.push_back(std::async(std::launch::async, [&] {
-            try {
-                auto assignment = std::vector<std::optional<int>>(numItems, std::nullopt);
-                auto usedValues = std::vector(dim, false);
-                auto threadLocalDomainMask = domainMask;
-
-                for ([[maybe_unused]] const auto _ : std::views::iota(0, Constants::ATTEMPTS_PER_THREAD)) {
-                    if (found.load(std::memory_order_relaxed)) return;
-
-                    if (solve(assignment, usedValues, threadLocalDomainMask)) {
-                        if (!found.exchange(true)) {
-                            auto newGrid = std::vector(rowCount, std::vector(columnCount, std::string()));
-                            for (int nodeIdx = 0; nodeIdx < numItems; nodeIdx++) {
-                                assignment[nodeIdx].and_then([this, &newGrid, nodeIdx](const int valID) -> std::optional<int> {
-                                    const auto& [row, column] = nodeToPos.at(nodeIdx);
-                                    newGrid[row][column] = idToString.at(valID);
-                                    return {};
-                                });
-                            }
-
-                            std::lock_guard lock(resultMutex);
-                            resultGrid = std::move(newGrid);
-                        }
-                        return;
-                    }
-
-                    std::ranges::fill(assignment, std::nullopt);
-                    std::ranges::fill(usedValues, false);
-                    threadLocalDomainMask = domainMask;
-                }
-            }
-            catch (...) {
-                std::lock_guard lock(resultMutex);
-                if (!exceptionPtr) {
-                    exceptionPtr = std::current_exception();
-                }
-            }
-        }));
-    }
-
-    for (auto& f : futures) {
-        f.get();
-    }
-
-    if (found.load()) {
-        const auto endTime = high_resolution_clock::now();
-        const auto duration = duration_cast<microseconds>(endTime - startTime);
-        spdlog::info("[OK] Shuffle successful (took {:.3f}ms).", duration.count()/1000.0);
-
-        data.push_back(std::move(resultGrid));
-        return;
-    }
-
-    if (exceptionPtr) {
-        std::rethrow_exception(exceptionPtr);
-    }
-
-#else
-    // ==========================================
-    // SINGLE-THREADED FALLBACK (Pthreads disabled)
-    // ==========================================
     auto assignment = std::vector<std::optional<int>>(numItems, std::nullopt);
     auto usedValues = std::vector(dim, false);
     auto localDomainMask = domainMask;
     bool found = false;
 
     // Run total attempts sequentially
-    for ([[maybe_unused]] const auto _ : std::views::iota(0, Constants::MAX_ATTEMPTS)) {
+    for (const auto attemptCount : std::views::iota(0, MAX_ATTEMPTS)) {
         if (solve(assignment, usedValues, localDomainMask)) {
             auto newGrid = std::vector(rowCount, std::vector(columnCount, std::string()));
             for (int nodeIdx = 0; nodeIdx < numItems; nodeIdx++) {
@@ -179,22 +284,30 @@ void GridShuffler::shuffle() {
         std::ranges::fill(assignment, std::nullopt);
         std::ranges::fill(usedValues, false);
         localDomainMask = domainMask;
+
+#if defined(__EMSCRIPTEN__) && !defined(__EMSCRIPTEN_PTHREADS__)
+        // Yield to the event loop in single-threaded Emscripten to avoid blocking
+        static_assert(MAX_ATTEMPTS > 0);
+        if ((attemptCount+1) % 5 == 0) {
+            emscripten_sleep(0);
+        }
+#endif
     }
 
     if (found) {
+        
         const auto endTime = high_resolution_clock::now();
         const auto duration = duration_cast<microseconds>(endTime - startTime);
         spdlog::info("[OK] Shuffle successful (took {:.3f}ms).", duration.count()/1000.0);
         return;
     }
-#endif
 
     const auto endTime = high_resolution_clock::now();
     const auto duration = duration_cast<milliseconds>(endTime - startTime);
 
     static const auto msg = std::format(
         "[FAIL] Shuffle failed after {} attempts (took {} ms). Constraints may be unsatisfiable.",
-        Constants::MAX_ATTEMPTS,
+        MAX_ATTEMPTS,
         duration.count()
     );
     spdlog::critical(msg);
@@ -372,7 +485,7 @@ void GridShuffler::initDomains() {
             constexpr bool isForce = std::is_same_v<ConstraintType, ForceCol> || std::is_same_v<ConstraintType, ForceRow>;
             constexpr bool isForbid = std::is_same_v<ConstraintType, ForbidCol> || std::is_same_v<ConstraintType, ForbidRow>;
             constexpr bool constraintCol = std::is_same_v<ConstraintType, ForceCol> || std::is_same_v<ConstraintType, ForbidCol>;
-            constexpr bool constraintRow = std::is_same_v<ConstraintType, ForceRow> || std::is_same_v<ConstraintType, ForbidRow>;
+            constexpr bool constraintRow = std::is_same_v<ConstraintType, ForceRow> || std::is_same_v<ConstraintType,  ForbidRow>;
             constexpr bool isDynamic = std::is_same_v<ConstraintType, ForbidShareCol> || std::is_same_v<ConstraintType, ForbidShareRow>;
 
             if constexpr (constraintCol || constraintRow) {
@@ -429,8 +542,7 @@ bool GridShuffler::checkDynamicConstraints(const NodeID u, const ValueID v, cons
         else if (v == id2) targetPartner = id1;
         else continue;
 
-        const auto& nodesToCheck = (type == DynamicConstraint::Type::ShareRow) ?
-                                    nodesByRow[r] : nodesByColumn[c];
+        const auto& nodesToCheck = type == DynamicConstraint::Type::ShareRow ? nodesByRow[r] : nodesByColumn[c];
 
         for (const NodeID neighbor_node : nodesToCheck) {
             if (neighbor_node != u && assignment[neighbor_node] == targetPartner) {

@@ -1,34 +1,31 @@
-#pragma once
+module;
 
-#include <print>
 #include <variant>
 #include <string>
 #include <vector>
 
-#include "utils/utiltypes.hpp"
+export module Algorithm.Constraints;
 
-//   Constraint definitions
-struct ForceRow { std::string first; int second; };
+export struct ForceRow { std::string first; int second; };
 
-struct ForbidRow { std::string first; int second; };
+export struct ForbidRow { std::string first; int second; };
 
-struct ForceCol { std::string first; int second; };
+export struct ForceCol { std::string first; int second; };
 
-struct ForbidCol { std::string first; int second; };
+export struct ForbidCol { std::string first; int second; };
 
-struct ForbidShareRow { std::string first; std::string second; };
+export struct ForbidShareRow { std::string first; std::string second; };
 
-struct ForbidShareCol { std::string first; std::string second; };
+export struct ForbidShareCol { std::string first; std::string second; };
 
-using Constraint = std::variant<ForceRow, ForbidRow, ForceCol, ForbidCol, ForbidShareRow, ForbidShareCol>;
-using Constraints = ArrayOf<Constraint>;
+export using Constraint = std::variant<ForceRow, ForbidRow, ForceCol, ForbidCol, ForbidShareRow, ForbidShareCol>;
 
-struct ShuffleConfig {
+export struct ShuffleConfig {
     bool allow_fixed_points = false;
     bool allow_original_neighbors = false;
     bool diagonals_are_neighbors = false;
-    ArrayOf<std::pair<std::string, std::string>> custom_forbidden_pairs;
-    Constraints constraints;
+    std::vector<std::pair<std::string, std::string>> custom_forbidden_pairs;
+    std::vector<Constraint> constraints;
 
     constexpr
     explicit ShuffleConfig() = default;
