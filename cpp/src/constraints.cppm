@@ -4,7 +4,6 @@
 #include <variant>
 #include <string>
 #include <vector>
-#include <nlohmann/json_fwd.hpp>
 
 #include "utils/utiltypes.hpp"
 
@@ -83,9 +82,4 @@ struct ShuffleConfig {
     void forbidShareCol(const std::string& val1, const std::string& val2) {
         constraints.emplace_back(ForbidShareCol{val1, val2});
     }
-
-
-    [[nodiscard]]
-    static
-    ShuffleConfig from_json(const nlohmann::json& json);
 };
