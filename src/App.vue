@@ -5,9 +5,8 @@
       :color-preset-count="colorConfig.colorPresets.value.length"
       :has-custom-config="constraints.hasCustomConfig.value"
       @csv-import="handleCSVImport"
-      @csv-export="handleCSVExport"
       @xlsx-import="handleXLSXImport"
-      @xlsx-export="handleXLSXExport"
+      @grid-export="handleGridExport"
       @color-import="handleColorImport"
       @clear-colors="handleClearColors"
       @constraints-import="handleConstraintsImport"
@@ -132,18 +131,6 @@ const handleCSVImport = async (file: File) => {
   }
 }
 
-const handleCSVExport = () => {
-  if (grid.currentGrid.value.length === 0) return
-
-  if (grid.showOriginal.value) {
-    const confirmChoice = confirm('這是原始名單，確定要導出嗎？\n\n建議先執行洗牌操作後再導出。')
-    if (!confirmChoice) return
-  }
-
-  fileIO.exportCSV(grid.currentGrid.value, `allocated_seats_page_${grid.currentIndex.value}.csv`)
-  statusText.value = `已導出至：allocated_seats_page_${grid.currentIndex.value}.csv`
-}
-
 const handleXLSXImport = async (file: File) => {
   if (!wasm.wasmReady.value) return
   try {
@@ -159,7 +146,7 @@ const handleXLSXImport = async (file: File) => {
   }
 }
 
-const handleXLSXExport = () => {
+const handleGridExport = async () => {
   if (grid.currentGrid.value.length === 0) return
 
   if (grid.showOriginal.value) {
@@ -167,8 +154,54 @@ const handleXLSXExport = () => {
     if (!confirmChoice) return
   }
 
-  fileIO.exportXLSX(grid.currentGrid.value, `allocated_seats_page_${grid.currentIndex.value}.xlsx`)
-  statusText.value = `已導出至：allocated_seats_page_${grid.currentIndex.value}.xlsx`
+  const defaultFileName = `allocated_seats_page_${grid.currentIndex.value}`
+
+  if (!window.showSaveFilePicker) {
+    alert('您的瀏覽器不支援另存新檔功能，請更新瀏覽器或使用預設下載。')
+    return
+  }
+
+  try {
+    const fileHandle = await window.showSaveFilePicker({
+      suggestedName: defaultFileName,
+      types: [
+        {
+          description: 'Excel 活頁簿',
+          accept: {
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+          },
+        },
+        {
+          description: 'CSV (逗號分隔)',
+          accept: {
+            'text/csv': ['.csv'],
+          },
+        },
+      ],
+    })
+
+    const actualFileName = fileHandle.name
+    const writable = await fileHandle.createWritable()
+
+    if (actualFileName.endsWith('.xlsx')) {
+      const excelData = fileIO.generateXLSXBuffer(grid.currentGrid.value)
+      await writable.write(excelData)
+      statusText.value = `已成功匯出 Excel：${actualFileName}`
+    } else if (actualFileName.endsWith('.csv')) {
+      const csvData = fileIO.generateCSVContent(grid.currentGrid.value)
+      await writable.write(csvData)
+      statusText.value = `已成功匯出 CSV：${actualFileName}`
+    }
+
+    await writable.close()
+  } catch (err: unknown) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      statusText.value = '已取消導出。'
+    } else {
+      console.error('導出失敗：', err)
+      statusText.value = '導出失敗，請檢查權限或控制台錯誤。'
+    }
+  }
 }
 
 // ==========================================

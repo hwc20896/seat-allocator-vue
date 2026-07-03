@@ -18,20 +18,8 @@ export function useFileIO() {
       .filter((row) => row.length > 0 && row.some((cell) => cell !== ''))
   }
 
-  const exportCSV = (grid: Grid, filename: string) => {
-    if (grid.length === 0) return
-
-    const csvContent = grid.map((row) => row.join(',')).join('\n')
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-
-    const link = document.createElement('a')
-    link.setAttribute('href', url)
-    link.setAttribute('download', filename)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+  const generateCSVContent = (grid: Grid): string => {
+    return grid.map((row) => row.join(',')).join('\n')
   }
 
   const parseXLSX = (file: File): Promise<Grid> => {
@@ -61,31 +49,18 @@ export function useFileIO() {
     })
   }
 
-  const exportXLSX = (grid: Grid, filename: string) => {
-    if (grid.length === 0) return
-
+  const generateXLSXBuffer = (grid: Grid): ArrayBuffer => {
     const ws = XLSX.utils.aoa_to_sheet(grid)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Sheet1')
-    const wb_out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
-    const blob = new Blob([wb_out], {
-      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.setAttribute('download', filename)
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
+    return XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer
   }
 
   return {
     readTextFile,
     parseCSV,
-    exportCSV,
     parseXLSX,
-    exportXLSX,
+    generateCSVContent,
+    generateXLSXBuffer,
   }
 }

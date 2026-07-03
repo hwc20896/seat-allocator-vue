@@ -3,30 +3,19 @@
     <!-- File Operations -->
     <DropDownMenu label="文件 (File)">
       <label class="dropdown-item file-label">
-        從 .csv 導入
+        導入座位排佈
+        <span class="key-shortcut-indicator">Ctrl + I</span>
         <input
-          ref="csvInputRef"
+          ref="gridInputRef"
           type="file"
-          accept=".csv"
+          accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           style="display: none"
-          @change="onCSVImport"
+          @change="onGridImport"
         />
       </label>
-      <button class="dropdown-item" :disabled="!isGridLoaded" @click="$emit('csv-export')">
-        導出為 .csv
-      </button>
-      <label class="dropdown-item file-label">
-        從 .xlsx 導入
-        <input
-          ref="xlsxInputRef"
-          type="file"
-          accept=".xlsx"
-          style="display: none"
-          @change="onXLSXImport"
-        />
-      </label>
-      <button class="dropdown-item" :disabled="!isGridLoaded" @click="$emit('xlsx-export')">
-        導出為 .xlsx
+      <button class="dropdown-item" :disabled="!props.isGridLoaded" @click="$emit('grid-export')">
+        導出座位排佈
+        <span class="key-shortcut-indicator">Ctrl + E</span>
       </button>
     </DropDownMenu>
 
@@ -78,7 +67,7 @@
 import { useTemplateRef } from 'vue'
 import DropDownMenu from '@/components/common/DropDownMenu.vue'
 
-defineProps<{
+const props = defineProps<{
   isGridLoaded: boolean
   colorPresetCount: number
   hasCustomConfig: boolean
@@ -87,8 +76,7 @@ defineProps<{
 const emit = defineEmits<{
   'csv-import': [file: File]
   'xlsx-import': [file: File]
-  'csv-export': []
-  'xlsx-export': []
+  'grid-export': []
   'color-import': [file: File]
   'clear-colors': []
   'constraints-import': [file: File]
@@ -108,14 +96,10 @@ const getFileFromEvent = (event: Event): File | null => {
   return file
 }
 
-const onCSVImport = (event: Event) => {
+const onGridImport = (event: Event) => {
   const file = getFileFromEvent(event)
-  if (file) emit('csv-import', file)
-}
-
-const onXLSXImport = (event: Event) => {
-  const file = getFileFromEvent(event)
-  if (file) emit('xlsx-import', file)
+  if (file?.name.endsWith('.csv')) emit('csv-import', file)
+  if (file?.name.endsWith('.xlsx')) emit('xlsx-import', file)
 }
 
 const onColorImport = (event: Event) => {
