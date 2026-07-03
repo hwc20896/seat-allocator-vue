@@ -79,7 +79,6 @@ export interface GridShufflerConstructor {
 export interface ModuleExports {
   ShuffleConfig: ShuffleConfigConstructor
   GridShuffler: GridShufflerConstructor
-  shuffleGrid(grid: Grid): Grid
 }
 
 export default function Module(): Promise<ModuleExports>

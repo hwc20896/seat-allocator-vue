@@ -82,13 +82,30 @@ export function useGridShuffle(
     const maxDelay = 300
 
     let localAnimGrid = JSON.parse(JSON.stringify(originalGrid.value))
+    const getAnimationGrid = (grid: Grid) : Grid => {
+      const result = cloneDeep(grid);
+
+      const cells = shuffle(result.flat().filter(cell => cell !== ""));
+
+      let index = 0;
+      for (const row of result) {
+        for (const [i, cell] of row.entries()) {
+          if (cell.length > 0) {
+            row[i] = cells[index++]!
+          }
+        }
+      }
+
+      return result;
+    }
+
 
     for (let step = 0; step < shuffleCount; step++) {
       const progress = step / shuffleCount
       const currentDelay = getDelayForProgress(progress, minDelay, maxDelay)
 
-      localAnimGrid = wasmModule.value?.shuffleGrid(localAnimGrid)
-      currentGrid.value = localAnimGrid
+        localAnimGrid = getAnimationGrid(localAnimGrid)
+        currentGrid.value = localAnimGrid
 
       await new Promise((resolve) => setTimeout(resolve, currentDelay))
     }

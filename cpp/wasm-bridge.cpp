@@ -109,9 +109,4 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
                                               .function("validateResult", &GridShuffler::validateResult)
                                               .function("clearShuffledGrids", &GridShuffler::clearShuffledGrids)
                                               .function("getAllGrids", &GridShuffler::getAllGrids);
-
-    function("shuffleGrid", optional_override([](const val& js_grid) {  //  from editing in place to returning the shuffled one
-        auto cpp_grid = js_array_to_cpp_grid(js_grid);
-        return cpp_grid_to_js_array(shuffleGrid(cpp_grid));
-    }));
 }
