@@ -17,7 +17,7 @@
       <div class="top-row-layout">
         <div class="title-group">
           <h1 class="title">座位分配系統</h1>
-          <span class="version-badge">v4.0</span>
+          <span class="version-badge">v{{ appVersion }}</span>
         </div>
 
         <PageNavigator
@@ -84,6 +84,8 @@ const grid = useGridShuffle(
 )
 const colorConfig = useColorConfig()
 const fileIO = useFileIO()
+
+const appVersion = __APP_VERSION__
 
 // ==========================================
 // App-level State
