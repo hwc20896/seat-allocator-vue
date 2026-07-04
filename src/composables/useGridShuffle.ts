@@ -22,6 +22,7 @@ export function useGridShuffle(
   const pageLabel = computed(() => {
     if (!isGridLoaded.value) return '未導入'
     if (showOriginal.value) return '原始列表'
+    if (isShuffling.value) return `正在洗牌中... (第 ${currentIndex.value + 1} 次)`
     return `第 ${currentIndex.value} 次分配`
   })
 
