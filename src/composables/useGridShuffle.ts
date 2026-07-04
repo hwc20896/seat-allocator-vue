@@ -1,6 +1,7 @@
 import { computed, ref, type ShallowRef } from 'vue'
 import type { PointerOf, ModuleExports, GridShuffler, Grid, ShuffleConfig } from '@/assets/wasm/alloc_algo'
 import {swap, Position} from '@/utils/Position.ts'
+import { shuffle, cloneDeep } from 'lodash-es'
 
 export function useGridShuffle(
   wasmModule: ShallowRef<PointerOf<ModuleExports>>,
@@ -81,7 +82,6 @@ export function useGridShuffle(
     const minDelay = 50
     const maxDelay = 300
 
-    let localAnimGrid = JSON.parse(JSON.stringify(originalGrid.value))
     const getAnimationGrid = (grid: Grid) : Grid => {
       const result = cloneDeep(grid);
 
@@ -99,19 +99,20 @@ export function useGridShuffle(
       return result;
     }
 
+    try {
+      shufflerInstance.value.shuffle()
 
-    for (let step = 0; step < shuffleCount; step++) {
-      const progress = step / shuffleCount
-      const currentDelay = getDelayForProgress(progress, minDelay, maxDelay)
+      let localAnimGrid = cloneDeep(originalGrid.value)
+
+      for (let step = 0; step < shuffleCount; step++) {
+        const progress = step / shuffleCount
+        const currentDelay = getDelayForProgress(progress, minDelay, maxDelay)
 
         localAnimGrid = getAnimationGrid(localAnimGrid)
         currentGrid.value = localAnimGrid
 
-      await new Promise((resolve) => setTimeout(resolve, currentDelay))
-    }
-
-    try {
-      shufflerInstance.value?.shuffle()
+        await new Promise((resolve) => setTimeout(resolve, currentDelay))
+      }
 
       currentGrid.value = shufflerInstance.value.getGrid()
       totalPages.value = shufflerInstance.value.getSize()
@@ -121,6 +122,7 @@ export function useGridShuffle(
     } catch (error: unknown) {
       alert('洗牌算法解決失敗！請檢查約束是否互相衝突。')
       console.error(error)
+      currentGrid.value = originalGrid.value
       return false
     } finally {
       isShuffling.value = false

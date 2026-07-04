@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import type { ModuleExports, PointerOf } from '@/assets/wasm/alloc_algo'
+import { isBoolean } from 'lodash-es'
 
 export function useConstraintsConfig() {
   const hasCustomConfig = ref(false)
@@ -42,9 +43,9 @@ export function useConstraintsConfig() {
     if (!o) return cfg
 
     try {
-      if (typeof o.allowFixedPoints === 'boolean') cfg.setAllowFixedPoints(o.allowFixedPoints)
-      if (typeof o.allowOriginalNeighbors === 'boolean') cfg.setAllowOriginalNeighbors(o.allowOriginalNeighbors)
-      if (typeof o.diagonalsAreNeighbors === 'boolean') cfg.setDiagonalsAreNeighbors(o.diagonalsAreNeighbors)
+      if (isBoolean(o.allowFixedPoints)) cfg.setAllowFixedPoints(o.allowFixedPoints)
+      if (isBoolean(o.allowOriginalNeighbors)) cfg.setAllowOriginalNeighbors(o.allowOriginalNeighbors)
+      if (isBoolean(o.diagonalsAreNeighbors)) cfg.setDiagonalsAreNeighbors(o.diagonalsAreNeighbors)
 
       if (Array.isArray(o.customForbiddenPairs)) {
         for (const p of o.customForbiddenPairs) {
