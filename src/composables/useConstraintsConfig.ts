@@ -1,17 +1,17 @@
 import { ref } from 'vue'
 import type { ModuleExports, PointerOf } from '@/assets/wasm/alloc_algo'
+import type { ImportedConstraint } from '@/utils/JSONTypes.ts'
 import { isBoolean } from 'lodash-es'
 
 export function useConstraintsConfig() {
   const hasCustomConfig = ref(false)
   const currentConfigJson = ref<string>('{}')
-  const parsedConfig = ref<any>(null)
+  const parsedConfig = ref<PointerOf<ImportedConstraint>>(null)
 
-  const validateBasicStructure = (obj: any): boolean => {
+  const validateBasicStructure = (obj: PointerOf<ImportedConstraint>): boolean => {
     if (typeof obj !== 'object' || obj === null) return false
     if (obj.customForbiddenPairs && !Array.isArray(obj.customForbiddenPairs)) return false
-    return !(obj.constraints && !Array.isArray(obj.constraints));
-
+    return !obj.constraints || Array.isArray(obj.constraints)
   }
 
   const loadConstraints = (configString: string): boolean => {
@@ -62,7 +62,7 @@ export function useConstraintsConfig() {
       console.log(o.constraints)
       if (Array.isArray(o.constraints)) {
         for (const c of o.constraints) {
-          if (!c || typeof c.type !== 'string') continue
+          if (!c) continue
           try {
             switch (c.type.toUpperCase()) {
               case 'FORCEROW':
@@ -99,7 +99,7 @@ export function useConstraintsConfig() {
         }
       }
     } catch (e) {
-      console.warn('Failed to build wasm config from JSON', e)
+      console.warn('Failed to build WASM config from JSON', e)
     }
 
     return cfg

@@ -73,7 +73,7 @@ export function useGridShuffle(
   }
 
   const beginShuffleAnimation = async () => {
-    if (!shufflerInstance.value || isShuffling.value) return false
+    if (!shufflerInstance.value || !wasmModule.value || isShuffling.value) return false
 
     isShuffling.value = true
     showOriginal.value = false
@@ -149,8 +149,7 @@ export function useGridShuffle(
   const swapCells = (pos1: Position, pos2: Position) => {
     if (showOriginal.value || isShuffling.value) return
 
-    const gridCopy = JSON.parse(JSON.stringify(currentGrid.value)) as Grid
-
+    const gridCopy = cloneDeep(currentGrid.value)
     const swapped = swap(gridCopy, pos1, pos2);
 
     currentGrid.value = swapped
@@ -188,7 +187,11 @@ export function useGridShuffle(
         const cfgInstance = cfg ?? (getShuffleConfig ? getShuffleConfig() : null)
         const newShuffler = cfgInstance ? new wasmModule.value.GridShuffler(cfgInstance) : new wasmModule.value.GridShuffler(new wasmModule.value.ShuffleConfig())
         if (shufflerInstance.value) {
-          try { shufflerInstance.value.delete() } catch (e) { console.warn('failed to delete old shuffler', e) }
+          try {
+            shufflerInstance.value.delete()
+          } catch (e) {
+            console.warn('failed to delete old shuffler', e)
+          }
         }
         shufflerInstance.value = newShuffler
         return true
@@ -202,7 +205,7 @@ export function useGridShuffle(
     const prevShuffler = shufflerInstance.value
     const prevTotal = totalPages.value
     const prevIndex = currentIndex.value
-    const prevManual = JSON.parse(JSON.stringify(manuallyModifiedGrids.value))
+    const prevManual = cloneDeep(manuallyModifiedGrids.value)
 
     try {
       const cfgInstance = cfg ?? (getShuffleConfig ? getShuffleConfig() : null)
@@ -217,7 +220,11 @@ export function useGridShuffle(
 
       // If there were generated pages before, regenerate with new config so indices remain meaningful
       if (prevTotal > 0) {
-        try { newShuffler.shuffle() } catch (e) { console.warn('newShuffler.shuffle() failed', e) }
+        try {
+          newShuffler.shuffle()
+        } catch (e) {
+          console.warn('newShuffler.shuffle() failed', e)
+        }
       }
 
       const newSize = newShuffler.getSize()
@@ -225,7 +232,11 @@ export function useGridShuffle(
       // Replace native instance only after success to avoid losing previous state on failure
       shufflerInstance.value = newShuffler
       if (prevShuffler) {
-        try { prevShuffler.delete() } catch (e) { console.warn('failed to delete prev shuffler', e) }
+        try {
+          prevShuffler.delete()
+        } catch (e) {
+          console.warn('failed to delete prev shuffler', e)
+        }
       }
 
       totalPages.value = newSize
@@ -235,7 +246,7 @@ export function useGridShuffle(
         const newManual: Record<number, Grid> = {}
         for (const kStr of Object.keys(prevManual)) {
           const k = Number(kStr)
-          if (k >= 1 && k <= newSize) newManual[k] = prevManual[k]
+          if (k >= 1 && k <= newSize) newManual[k] = prevManual[k] || []
         }
         manuallyModifiedGrids.value = newManual
       } else {

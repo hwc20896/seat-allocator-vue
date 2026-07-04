@@ -300,7 +300,7 @@ const handleCellClick = (position: Position) => {
   } else {
     const tPos = taggedCell.value
     grid.swapCells(tPos, position)
-    statusText.value = `已手動交換單元格：${tPos} <-> ${position}`
+    statusText.value = `已手動交換單元格：${tPos} ⟺ ${position}`
     taggedCell.value = null
   }
 }

@@ -6,7 +6,7 @@
       @click="$emit('navigate', -1)"
       title="前一頁"
     >
-      &lt;
+      &xlArr;
     </button>
 
     <div class="page-indicator" :class="{ 'original-view': showOriginal }">
@@ -20,7 +20,7 @@
       @click="$emit('navigate', 1)"
       title="後一頁"
     >
-      &gt;
+      &xrArr;
     </button>
 
     <button
