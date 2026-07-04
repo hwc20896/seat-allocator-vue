@@ -39,6 +39,7 @@
         :tagged-col="taggedCol"
         :get-cell-color="colorConfig.getCellColor"
         :is-cell-swapped="isCellSwapped"
+        :is-currently-original="isOriginal"
         @cell-click="handleCellClick"
       />
 
@@ -91,6 +92,7 @@ const appVersion = __APP_VERSION__
 // App-level State
 // ==========================================
 const statusText = ref('未導入')
+const isOriginal = ref(false)
 
 // Tagged cell for swap interaction
 const taggedCell = ref<PointerOf<Position>>(null)
@@ -283,6 +285,7 @@ const handleNavigate = (step: number) => {
 const handleToggleOriginal = () => {
   grid.toggleOriginal()
   taggedCell.value = null
+  isOriginal.value = !isOriginal.value
 }
 
 // ==========================================

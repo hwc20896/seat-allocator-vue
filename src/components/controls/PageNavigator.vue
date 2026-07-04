@@ -9,8 +9,8 @@
       &xlArr;
     </button>
 
-    <div class="page-indicator" :class="{ 'original-view': showOriginal }">
-      <span class="indicator-dot"></span>
+    <div class="page-indicator" :class="{ 'original-view': props.showOriginal }">
+      <span class="indicator-dot" :class="{ 'original-view': props.showOriginal }"></span>
       {{ pageLabel }}
     </div>
 
@@ -104,7 +104,7 @@ useKeyboardShortcut(
   color: var(--text-main);
   transition: var(--transition-fast);
   box-shadow: var(--shadow-xs);
-  letter-spacing: 0.3px;
+  letter-spacing: 1px;
 }
 
 .indicator-dot {
@@ -115,6 +115,10 @@ useKeyboardShortcut(
   display: inline-block;
   box-shadow: 0 0 8px var(--primary-glow);
   animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.indicator-dot.original-view {
+  background: #d97706;
 }
 
 @keyframes pulse-dot {
@@ -183,9 +187,16 @@ useKeyboardShortcut(
   cursor: pointer;
   font-size: 13px;
   font-weight: 500;
-  color: var(--text-muted);
+  color: var(--text-dark);
   transition: var(--transition-fast);
   box-shadow: var(--shadow-xs);
+}
+
+.push-button:disabled {
+  cursor: not-allowed;
+  color: var(--text-muted);
+  background-color: var(--bg-page);
+  opacity: 0.4;
 }
 
 .push-button:hover:not(:disabled) {

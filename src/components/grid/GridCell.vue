@@ -1,7 +1,7 @@
 <template>
-  <div class="cell-content" :class="contentClass" :style="cellStyle" @click="$emit('click')">
-    <span class="cell-icon">🪑</span>
-    <span class="cell-text">{{ text || '空位' }}</span>
+  <div class="cell-content" :class="contentClass" @click="$emit('click')">
+    <span class="cell-icon" v-if="text.length > 0">🪑</span>
+    <span class="cell-text" :style="cellStyle">{{ text || '空位' }}</span>
   </div>
 </template>
 
@@ -13,6 +13,8 @@ const props = defineProps<{
   color: string
   isTagged: boolean
   isSwapped: boolean
+  isShuffling: boolean
+  isCurrentlyOriginal: boolean
 }>()
 
 defineEmits<{
@@ -24,6 +26,8 @@ const contentClass = computed(() => {
   if (props.isTagged) classes.push('tagged')
   if (props.isSwapped) classes.push('swapped')
   if (!props.text) classes.push('empty-element')
+  if (props.isCurrentlyOriginal) classes.push('original-view')
+  if (props.isShuffling) classes.push('shuffling')
   return classes
 })
 
@@ -41,7 +45,7 @@ const cellStyle = computed(() => ({
   box-sizing: border-box;
   width: 100%;
   height: 100%;
-  min-height: 90px;
+  min-height: 75px;
   background: linear-gradient(135deg, #ffffff 0%, #fafbfc 100%);
   border: 1px solid var(--border-light);
   border-radius: 10px;
@@ -78,34 +82,39 @@ const cellStyle = computed(() => ({
 }
 
 .cell-text {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--text-dark);
-  letter-spacing: 0.3px;
+  letter-spacing: 1px;
 }
 
 /* Empty state */
-.cell-content:has(.cell-text:empty) {
+.cell-content.empty-element {
+  opacity: 0.6;
   background-color: rgba(241, 245, 249, 0.5);
   border: 1px dashed var(--border-medium);
   box-shadow: none;
 }
 
 /* Hover */
-.cell-content:hover {
+.cell-content:not(.shuffling):hover {
   transform: translateY(-3px) scale(1.02);
   box-shadow: var(--shadow-lg);
   border-color: var(--primary);
 }
 
-.cell-content:hover::before {
+.cell-content:not(.shuffling):hover::before {
   opacity: 1;
 }
 
-.cell-content:hover .cell-icon {
+.cell-content:not(.shuffling):hover .cell-icon {
   opacity: 1;
   filter: grayscale(0);
   transform: scale(1.1);
+}
+
+.cell-content:is(.shuffling):hover {
+  cursor: not-allowed;
 }
 
 /* Tagged state */
@@ -122,11 +131,15 @@ const cellStyle = computed(() => ({
   font-weight: 700;
 }
 
+.cell-content.tagged::before {
+  background: linear-gradient(90deg, transparent 0%, #f59e0b 50%, transparent 100%);
+}
+
 @keyframes pulse-tag {
   0%,
   100% {
     box-shadow:
-      0 0 0 0px rgba(245, 158, 11, 0.4),
+      0 0 0 0 rgba(245, 158, 11, 0.4),
       0 0 20px rgba(245, 158, 11, 0.2);
   }
   50% {
@@ -144,8 +157,11 @@ const cellStyle = computed(() => ({
   box-shadow: 0 0 15px rgba(248, 113, 113, 0.25);
 }
 
+.cell-content.swapped::before {
+  background: linear-gradient(90deg, transparent 0%, #f87171 50%, transparent 100%);
+}
+
 .cell-content.swapped .cell-text {
-  color: #991b1b;
   font-style: italic;
   font-weight: 700;
 }
@@ -158,7 +174,19 @@ const cellStyle = computed(() => ({
   opacity: 0.8;
 }
 
-.cell-content.empty-element {
-  opacity: 0.7;
+.cell-content.original-view {
+  /*  green background.  */
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%) !important;
+  border-color: #34d399 !important;
+  border-style: groove;
+}
+
+.cell-content.original-view:is(.empty-element) {
+  border-style: dotted;
+  border-color: rgba(52, 211, 153, 0.6)
+}
+
+.cell-content.original-view::before {
+  background: linear-gradient(90deg, transparent 0%, #34d399 50%, transparent 100%);
 }
 </style>

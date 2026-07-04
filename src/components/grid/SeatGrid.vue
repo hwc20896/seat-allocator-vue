@@ -9,6 +9,8 @@
               :color="getCellColor(cell)"
               :is-tagged="taggedRow === rIdx && taggedCol === cIdx"
               :is-swapped="!isShuffling && isCellSwapped(new Position(rIdx, cIdx))"
+              :is-currently-original="isCurrentlyOriginal"
+              :is-shuffling="isShuffling"
               @click="$emit('cell-click', new Position(rIdx, cIdx))"
             />
           </td>
@@ -30,6 +32,7 @@ defineProps<{
   taggedCol: number | null
   getCellColor: (text: string) => string
   isCellSwapped: (position: Position) => boolean
+  isCurrentlyOriginal: boolean
 }>()
 
 defineEmits<{

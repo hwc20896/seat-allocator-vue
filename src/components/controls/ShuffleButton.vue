@@ -99,6 +99,10 @@ useKeyboardShortcut('enter', () => {
   box-shadow: none;
 }
 
+.shuffle-button.is-active-shuffling:disabled {
+  cursor: progress;
+}
+
 /* Spinner animation */
 .spinner {
   width: 20px;
