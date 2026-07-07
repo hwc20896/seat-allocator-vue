@@ -64,7 +64,7 @@ export interface GridShuffler {
   getGrid(): Grid
   getGridAt(index: number): Grid
   getGridByIndex(index: number): Grid
-  shuffle(): void
+  shuffle(): Promise<void>
   delete(): void //  ~GridShuffler();
   validateResult(): boolean
   clearShuffledGrids(): void

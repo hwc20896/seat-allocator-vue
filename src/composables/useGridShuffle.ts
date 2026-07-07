@@ -101,7 +101,9 @@ export function useGridShuffle(
     }
 
     try {
-      shufflerInstance.value.shuffle()
+      console.time("Shuffle Algorithm took")
+      await shufflerInstance.value.shuffle()
+      console.timeEnd("Shuffle Algorithm took")
 
       let localAnimGrid = cloneDeep(originalGrid.value)
 
@@ -175,7 +177,7 @@ export function useGridShuffle(
     }
   }
 
-  const applyConfig = (cfg?: PointerOf<ShuffleConfig>, options: { preserveManual?: boolean } = { preserveManual: true }) => {
+  const applyConfig = async (cfg?: PointerOf<ShuffleConfig>, options: { preserveManual?: boolean } = { preserveManual: true }) => {
     // Apply a new ShuffleConfig to the native shuffler while trying to preserve UI state
     if (!wasmModule.value) {
       alert('WebAssembly 模組未就緒，無法套用約束。')
@@ -222,7 +224,7 @@ export function useGridShuffle(
       // If there were generated pages before, regenerate with new config so indices remain meaningful
       if (prevTotal > 0) {
         try {
-          newShuffler.shuffle()
+          await newShuffler.shuffle()
         } catch (e) {
           console.warn('newShuffler.shuffle() failed', e)
         }
