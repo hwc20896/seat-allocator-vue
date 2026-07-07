@@ -71,6 +71,18 @@ if(EMSCRIPTEN)
             "SHELL:-s ELIMINATE_DUPLICATE_FUNCTIONS=1"
         )
     endif()
+
+    set(VUE_PROJECT_DIR "${CMAKE_SOURCE_DIR}/..")
+
+    add_custom_command(TARGET alloc_algo POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy
+        "$<TARGET_FILE:alloc_algo>"
+        "${VUE_PROJECT_DIR}/src/assets/wasm/alloc_algo.js"
+        COMMAND ${CMAKE_COMMAND} -E copy
+        "$<TARGET_FILE_DIR:alloc_algo>/alloc_algo.wasm"
+        "${VUE_PROJECT_DIR}/public/alloc_algo.wasm"
+        COMMENT "Copying WASM outputs to Vue project directories"
+    )
 else()
     message(WARNING "EMSCRIPTEN not found. Building native executable.")
 endif()
