@@ -60,7 +60,8 @@ if(EMSCRIPTEN)
         "-sEXPORT_ES6=1"
         "-sASSERTIONS=1" # Useful for debugging crashes
         "-lembind"        # Required for embind support
-        "-sASYNCIFY_STACK_SIZE=32768"
+        "-sASYNCIFY_STACK_SIZE=262144"  # 256kB
+        "-sASYNCIFY"
     )
 
     if(NOT DEFINED CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Release")
