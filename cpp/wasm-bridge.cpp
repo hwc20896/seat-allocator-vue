@@ -6,38 +6,10 @@
 import Algorithm.Constraints;
 import Algorithm.Shuffler;
 import Algorithm.Utils;
+import Algorithm.Grid;
+import Algorithm.Configs;
 
 using namespace emscripten;
-
-Grid js_array_to_cpp_grid(const val& js_grid) {
-    Grid cpp_grid;
-    const auto row_count = js_grid["length"].as<uint32_t>();
-
-    for (uint32_t r = 0; r < row_count; ++r) {
-        std::vector<std::string> cpp_row;
-        val js_row = js_grid[r];
-        const auto col_count = js_row["length"].as<uint32_t>();
-
-        cpp_row.reserve(col_count);
-        for (uint32_t c = 0; c < col_count; ++c) {
-            cpp_row.push_back(js_row[c].as<std::string>());
-        }
-        cpp_grid.push_back(cpp_row);
-    }
-    return cpp_grid;
-}
-
-val cpp_grid_to_js_array(const Grid& cpp_grid) {
-    val js_grid = val::array();
-    for (const auto& row : cpp_grid) {
-        val js_row = val::array();
-        for (const auto& cell : row) {
-            js_row.call<void>("push", cell);
-        }
-        js_grid.call<void>("push", js_row);
-    }
-    return js_grid;
-}
 
 EMSCRIPTEN_BINDINGS(GridShufflerModule) {
     register_vector<std::string>("StringVector");
@@ -71,41 +43,105 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .field("second", &ForbidShareCol::second);
 
     //  struct ShuffleConfig
-    class_<ShuffleConfig>("ShuffleConfig").constructor<>()
-                                                .property("allow_fixed_points", &ShuffleConfig::allow_fixed_points)
-                                                .property("allow_original_neighbors", &ShuffleConfig::allow_original_neighbors)
-                                                .property("diagonals_are_neighbors", &ShuffleConfig::diagonals_are_neighbors)
-                                                .property("custom_forbidden_pairs", &ShuffleConfig::custom_forbidden_pairs)
-                                                .property("constraints", &ShuffleConfig::constraints)
-                                                .function("setAllowFixedPoints", &ShuffleConfig::setAllowFixedPoints, allow_raw_pointers())
-                                                .function("setAllowOriginalNeighbors", &ShuffleConfig::setAllowOriginalNeighbors, allow_raw_pointers())
-                                                .function("setDiagonalsAreNeighbors", &ShuffleConfig::setDiagonalsAreNeighbors, allow_raw_pointers())
-                                                .function("addForbiddenPair", &ShuffleConfig::addForbiddenPair, allow_raw_pointers())
-                                                .function("forceRow", &ShuffleConfig::forceRow, allow_raw_pointers())
-                                                .function("forbidRow", &ShuffleConfig::forbidRow, allow_raw_pointers())
-                                                .function("forceCol", &ShuffleConfig::forceCol, allow_raw_pointers())
-                                                .function("forbidCol", &ShuffleConfig::forbidCol, allow_raw_pointers())
-                                                .function("forbidShareRow", &ShuffleConfig::forbidShareRow, allow_raw_pointers())
-                                                .function("forbidShareCol", &ShuffleConfig::forbidShareCol, allow_raw_pointers());
+    class_<ShuffleConfig>("ShuffleConfig")
+        .constructor<>()
+        .property("allow_fixed_points", &ShuffleConfig::allow_fixed_points)
+        .property("allow_original_neighbors", &ShuffleConfig::allow_original_neighbors)
+        .property("diagonals_are_neighbors", &ShuffleConfig::diagonals_are_neighbors)
+        .property("custom_forbidden_pairs", &ShuffleConfig::custom_forbidden_pairs)
+        .property("constraints", &ShuffleConfig::constraints)
+        .function("setAllowFixedPoints", &ShuffleConfig::setAllowFixedPoints, allow_raw_pointers())
+        .function("setAllowOriginalNeighbors", &ShuffleConfig::setAllowOriginalNeighbors, allow_raw_pointers())
+        .function("setDiagonalsAreNeighbors", &ShuffleConfig::setDiagonalsAreNeighbors, allow_raw_pointers())
+        .function("addForbiddenPair", &ShuffleConfig::addForbiddenPair, allow_raw_pointers())
+        .function("forceRow", &ShuffleConfig::forceRow, allow_raw_pointers())
+        .function("forbidRow", &ShuffleConfig::forbidRow, allow_raw_pointers())
+        .function("forceCol", &ShuffleConfig::forceCol, allow_raw_pointers())
+        .function("forbidCol", &ShuffleConfig::forbidCol, allow_raw_pointers())
+        .function("forbidShareRow", &ShuffleConfig::forbidShareRow, allow_raw_pointers())
+        .function("forbidShareCol", &ShuffleConfig::forbidShareCol, allow_raw_pointers());
 
     //  class GridShuffler
-    class_<GridShuffler>("GridShuffler").constructor<>()
-                                              .constructor<const ShuffleConfig&>()
-                                              .function("getSize", &GridShuffler::getSize)
-                                              .function("setGrid", optional_override([](GridShuffler& self, const val& js_grid) {
-                                                  const auto cpp_grid = js_array_to_cpp_grid(js_grid);
-                                                  return self.setGrid(cpp_grid);
-                                              }))
-                                              .function("getOriginalGrid", &GridShuffler::getOriginalGrid)
-                                              .function("getGrid", optional_override([](const GridShuffler& self) {
-                                                  return cpp_grid_to_js_array(self.getGrid());
-                                              }))
-                                              .function("getGridAt", optional_override([](const GridShuffler& self, int index) {
-                                                  return cpp_grid_to_js_array(self.getGrid(index));
-                                              }))
-                                              .function("getGridByIndex", select_overload<const Grid&(int) const>(&GridShuffler::getGrid))
-                                              .function("shuffle", &GridShuffler::shuffle)
-                                              .function("validateResult", &GridShuffler::validateResult)
-                                              .function("clearShuffledGrids", &GridShuffler::clearShuffledGrids)
-                                              .function("getAllGrids", &GridShuffler::getAllGrids);
+    value_object<AnnealingConfig>("AnnealingConfig")
+        .field("initialTemperature", &AnnealingConfig::initialTemperature)
+        .field("coolingRate", &AnnealingConfig::coolingRate)
+        .field("maxSteps", &AnnealingConfig::maxSteps)
+        .field("maxAttempts", &AnnealingConfig::maxAttempts);
+
+    value_object<PenaltyWeights>("PenaltyWeights")
+        .field("fixedPoint", &PenaltyWeights::fixedPoint)
+        .field("absolutePosition", &PenaltyWeights::absolutePosition)
+        .field("originalNeighbor", &PenaltyWeights::originalNeighbor)
+        .field("customForbidden", &PenaltyWeights::customForbidden)
+        .field("forbidShare", &PenaltyWeights::forbidShare);
+
+    enum_<ShuffleError>("ShuffleError", enum_value_type::string)
+        .value("EmptyGrid", ShuffleError::EmptyGrid)
+        .value("MaxAttemptsReached", ShuffleError::MaxAttemptsReached);
+
+    class_<Grid>("Grid")
+        .constructor<>()
+        .constructor<int, int>()
+        .constructor(+[](const int rows, const int cols, const val& jsArray) {
+            std::vector<std::string> data;
+
+            const auto len = jsArray["length"].as<unsigned>();
+            data.reserve(len);
+
+            for (unsigned i = 0; i < len; ++i) {
+                data.push_back(jsArray[i].as<std::string>());
+            }
+
+            return std::make_unique<Grid>(rows, cols, std::move(data));
+        })
+        .function("getByPos", select_overload<const std::string& (int, int) const>(&Grid::get))
+        .function("getByIndex", select_overload<const std::string& (int) const>(&Grid::get))
+        .function("setByPos", select_overload<void (int, int, std::string)>(&Grid::set))
+        .function("setByIndex", select_overload<void (int, std::string)>(&Grid::set))
+        .function("rowCount", &Grid::rowCount)
+        .function("colCount", &Grid::colCount)
+        .function("size", &Grid::size)
+        .function("empty", &Grid::empty)
+        .function("rawData", optional_override([](const Grid& self) {
+            val js_array = val::array();
+            for (const auto& str : self.rawData()) {
+                js_array.call<void>("push", str);
+            }
+            return js_array;
+        }))
+        .function("clone", &Grid::clone)
+        .function("toCSVString", &Grid::toCSVString)
+        .class_function("fromCSV", &Grid::fromCSVString);
+
+    class_<GridShuffler>("GridShuffler")
+        .constructor<>()
+        .function("getShuffledGridCount", &GridShuffler::getShuffledGridCount)
+        .function("setGrid", &GridShuffler::setGrid, allow_raw_pointers())
+        .function("setConfig", &GridShuffler::setConfig, allow_raw_pointers())
+        .function("setAnnealingConfig", &GridShuffler::setAnnealingConfig, allow_raw_pointers())
+        .function("setPenaltyWeights", &GridShuffler::setPenaltyWeights)
+        .function("getOriginalGrid", &GridShuffler::getOriginalGrid)
+        .function("getGrid", select_overload<const Grid& () const noexcept>(&GridShuffler::getGrid))
+        .function("getGridAt", select_overload<const Grid& () const>(&GridShuffler::getGrid))
+        .function("shuffle", optional_override([](GridShuffler& self) {
+            auto res = self.shuffle();
+
+            val js_obj = val::object();
+            if (res.has_value()) {
+                js_obj.set("success", true);
+
+                val data_obj = val::object();
+                data_obj.set("tookMUS", static_cast<double>(res->tookMUS));  // μs
+                data_obj.set("doneAtAttempt", res->doneAtAttempt);
+                data_obj.set("doneAtStep", res->doneAtStep);
+
+                js_obj.set("data", data_obj);
+            } else {
+                js_obj.set("success", false);
+                js_obj.set("error", res.error());
+            }
+            return js_obj;
+        }))
+        .function("validateResult", &GridShuffler::validateResult)
+        .function("clearShuffledGrids", &GridShuffler::clearShuffledGrids);
 }

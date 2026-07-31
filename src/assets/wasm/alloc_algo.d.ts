@@ -1,21 +1,10 @@
-//  using types: <utiltypes.hpp>
+//  using types: Algorithm.Utils
 
-export type ArrayOf<T> = T[];
-export type GridOf<T> = T[][];
 export type PointerOf<T> = T | null;
-export type PairOf<T, U> = [T, U];
 
-export type Grid = GridOf<string>;
-export type ForbiddenPairType = PairOf<string, string>;
+export type ForbiddenPairType = [string, string];
 
-/*  Defined in @/utils/Position.ts
-export interface Position{
-  row: number;
-  col: number;
-}
-*/
-
-//  constraints: <constraints.hpp>
+//  constraints: Algorithm.Constraints
 export interface ForceRow {name: string, rowIdx: number}
 
 export interface ForceCol {name: string, colIdx: number}
@@ -30,6 +19,28 @@ export interface ForbidShareCol{name1: string, name2: string}
 
 export type Constraint = ForceRow | ForceCol | ForbidRow | ForbidCol | ForbidShareRow | ForbidShareCol;
 
+export class Grid {
+  constructor();
+
+  constructor(row: number, col: number, data: string[]);
+
+  getByPos(row: number, col: number): string
+  getByIndex(idx: number): string
+  setByPos(row: number, col: number, value: string): void
+  setByIndex(idx: number, value: string): void
+  rowCount(): number
+  colCount(): number
+  size(): number
+  empty(): boolean
+  rawData(): string[]
+  clone(): Grid
+
+  static fromCSV(csvString: string): Grid;
+
+  toCSVString(): string;
+}
+
+//  Shuffle Config: Algorithm.Configs
 export interface ShuffleConfig {
   allowFixedPoints: boolean;
   allowOriginalNeighbors: boolean;
@@ -55,30 +66,51 @@ export interface ShuffleConfigConstructor{
   new (): ShuffleConfig;
 }
 
-
-//  main algorithm: <algorithm.hpp>
-export interface GridShuffler {
-  getSize(): number
-  setGrid(grid: Grid): boolean
-  getOriginalGrid(): Grid
-  getGrid(): Grid
-  getGridAt(index: number): Grid
-  getGridByIndex(index: number): Grid
-  shuffle(): Promise<void>
-  delete(): void //  ~GridShuffler();
-  validateResult(): boolean
-  clearShuffledGrids(): void
-  getAllGrids(): ArrayOf<Grid>
+//  Algorithm Config: Algorithm.Configs
+export interface AnnealingConfig{
+  initialTemperature: number;
+  coolingRate: number;
+  maxSteps: number;
+  maxAttempts: number;
 }
 
-export interface GridShufflerConstructor {
-  new (): GridShuffler
-  new (config: ShuffleConfig): GridShuffler
+export interface PenaltyWeights{
+  fixedPoint: number;
+  absolutePosition: number;
+  originalNeighbor: number;
+  customForbidden: number;
+  forbidShare: number;
+}
+
+//  Main Algorithm: Algorithm.Shuffler
+export interface ResultType {doneAtAttempt: number; doneAtStep: number; tookMUS: number;}
+
+export type ShuffleResponse =
+  | { success: true; data: ResultType }
+  | { success: false; error: 'EmptyGrid' | 'MaxAttemptsReached' };
+
+export interface GridShuffler {
+  delete(): void;
+  getShuffledGridCount(): number;
+  setGrid(grid: Grid): bool;
+  setConfig(cfg: ShuffleConfig): void;
+  setAnnealingConfig(cfg: AnnealingConfig): void;
+  setPenaltyWeights(cfg: PenaltyWeights): void;
+  getGrid(): Grid;
+  getGridAt(idx: number): Grid;
+  shuffle(): Promise<ShuffleResponse>;
+  validateResult(): boolean;
+  clearShuffledGrids(): void;
+}
+
+export interface GridShufflerConstructor{
+  new (): GridShuffler;
 }
 
 export interface ModuleExports {
-  ShuffleConfig: ShuffleConfigConstructor
-  GridShuffler: GridShufflerConstructor
+  ShuffleConfig: ShuffleConfigConstructor;
+  GridShuffler: GridShufflerConstructor;
+  Grid: typeof Grid;
 }
 
 export default function Module(): Promise<ModuleExports>
