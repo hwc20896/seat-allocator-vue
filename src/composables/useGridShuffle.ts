@@ -1,23 +1,34 @@
-import { computed, ref, type ShallowRef } from 'vue'
-import type { PointerOf, ModuleExports, GridShuffler, Grid, ShuffleConfig } from '@/assets/wasm/alloc_algo'
-import {swap, Position} from '@/utils/Position.ts'
+import { computed, ref, type Ref, type ShallowRef, shallowRef, watch } from 'vue'
+import type { PointerOf, ModuleExports, GridShuffler, ShuffleConfig, Grid } from '@/assets/wasm/alloc_algo'
+import { swap, Position } from '@/utils/Position.ts'
 import { shuffle, cloneDeep } from 'lodash-es'
 
 export function useGridShuffle(
   wasmModule: ShallowRef<PointerOf<ModuleExports>>,
+  wasmReady: Ref<boolean>,
   shufflerInstance: ShallowRef<PointerOf<GridShuffler>>,
-  // optional factory that returns a populated ShuffleConfig (or null)
   getShuffleConfig?: () => PointerOf<ShuffleConfig>,
 ) {
-  const originalGrid = ref<Grid>([])
-  const currentGrid = ref<Grid>([])
+  const originalGrid = shallowRef<Grid | null>(null)
+  const currentGrid = shallowRef<Grid | null>(null)
   const totalPages = ref(0)
   const currentIndex = ref(0)
   const isShuffling = ref(false)
   const showOriginal = ref(false)
-  const manuallyModifiedGrids = ref<Record<number, Grid>>({})
+  const manuallyModifiedGrids = shallowRef<Record<number, Grid>>({})
 
-  const isGridLoaded = computed(() => originalGrid.value.length > 0)
+  const isGridLoaded = computed(() => !originalGrid.value?.empty())
+
+  watch(
+    wasmReady,
+    (ready) => {
+      if (!ready || !wasmModule.value) return
+
+      originalGrid.value = new wasmModule.value.Grid()
+      currentGrid.value = new wasmModule.value.Grid()
+    },
+    { immediate: true },
+  )
 
   const pageLabel = computed(() => {
     if (!isGridLoaded.value) return '未導入'
@@ -34,7 +45,7 @@ export function useGridShuffle(
         shufflerInstance.value.delete()
       }
 
-      let config: PointerOf<ShuffleConfig> = null
+      let config: PointerOf<ShuffleConfig>
       try {
         config = getShuffleConfig ? getShuffleConfig() : null
       } catch (e) {
@@ -43,7 +54,9 @@ export function useGridShuffle(
       }
 
       const cfg = config ?? new wasmModule.value.ShuffleConfig()
-      shufflerInstance.value = new wasmModule.value.GridShuffler(cfg)
+      shufflerInstance.value = new wasmModule.value.GridShuffler()
+
+      shufflerInstance.value.setConfig(cfg);
 
       const success = shufflerInstance.value.setGrid(grid)
 
@@ -84,16 +97,15 @@ export function useGridShuffle(
     const maxDelay = 300
 
     const getAnimationGrid = (grid: Grid) : Grid => {
-      const result = cloneDeep(grid);
+      const result = grid.clone();
 
-      const cells = shuffle(result.flat().filter(cell => cell !== ""));
+      const cells = shuffle(result.rawData().filter(cell => cell !== ""));
 
-      let index = 0;
-      for (const row of result) {
-        for (const [i, cell] of row.entries()) {
-          if (cell.length > 0) {
-            row[i] = cells[index++]!
-          }
+      let index = 0
+
+      for (let i = 0; i < result.size(); i++){
+        if (result.getByIndex(i).length > 0){
+          result.setByIndex(i, cells[index++]!)
         }
       }
 
@@ -101,24 +113,30 @@ export function useGridShuffle(
     }
 
     try {
-      console.time("Shuffle Algorithm took")
-      await shufflerInstance.value.shuffle()
-      console.timeEnd("Shuffle Algorithm took")
+      console.time("Shuffle Response took")
+      const shuffleResult = await shufflerInstance.value.shuffle()
+      console.timeEnd('Shuffle Response took')
 
-      let localAnimGrid = cloneDeep(originalGrid.value)
+      if (!shuffleResult.success){
+        alert(`Unable to shuffle the grid due to reason: ${shuffleResult.error}`);
+        return false
+      }
+      console.info(`Shuffle done in ${shuffleResult.data.tookMUS / 1000}ms.`);
+
+      let localAnimGrid = originalGrid.value?.clone()
 
       for (let step = 0; step < shuffleCount; step++) {
         const progress = step / shuffleCount
         const currentDelay = getDelayForProgress(progress, minDelay, maxDelay)
 
-        localAnimGrid = getAnimationGrid(localAnimGrid)
+        localAnimGrid = getAnimationGrid(localAnimGrid!)
         currentGrid.value = localAnimGrid
 
         await new Promise((resolve) => setTimeout(resolve, currentDelay))
       }
 
       currentGrid.value = shufflerInstance.value.getGrid()
-      totalPages.value = shufflerInstance.value.getSize()
+      totalPages.value = shufflerInstance.value.getShuffledGridCount()
       currentIndex.value = totalPages.value
 
       return true
@@ -152,7 +170,13 @@ export function useGridShuffle(
   const swapCells = (pos1: Position, pos2: Position) => {
     if (showOriginal.value || isShuffling.value) return
 
-    const gridCopy = cloneDeep(currentGrid.value)
+    const gridCopy = currentGrid.value?.clone()
+
+    if (!gridCopy){
+      console.error('currentGrid.value is null. cannot swap elements.')
+      return
+    }
+
     const swapped = swap(gridCopy, pos1, pos2);
 
     currentGrid.value = swapped
@@ -160,8 +184,7 @@ export function useGridShuffle(
   }
 
   const getCellAt = (pos: Position): string => {
-    if (!currentGrid.value[pos.row]) return ''
-    return currentGrid.value[pos.row]?.[pos.col] || ''
+    return currentGrid.value?.getByPos(pos.row, pos.col) || ''
   }
 
   const isCellManuallyModified = (pos: Position): boolean => {
@@ -171,32 +194,27 @@ export function useGridShuffle(
 
     try {
       const pristineGrid = shufflerInstance.value.getGridAt(currentIndex.value - 1)
-      return pristineGrid && pristineGrid[pos.row]?.[pos.col] !== currentGrid.value[pos.row]?.[pos.col]
+      return pristineGrid && pristineGrid.getByPos(pos.row, pos.col) !== currentGrid.value?.getByPos(pos.row, pos.col)
     } catch (e) {
       return false
     }
   }
 
-  const applyConfig = async (cfg?: PointerOf<ShuffleConfig>, options: { preserveManual?: boolean } = { preserveManual: true }) => {
-    // Apply a new ShuffleConfig to the native shuffler while trying to preserve UI state
+  const applyConfig = async (cfg?: PointerOf<ShuffleConfig>) => {
     if (!wasmModule.value) {
       alert('WebAssembly 模組未就緒，無法套用約束。')
       return false
     }
 
-    // If there's no original grid yet, just replace the shuffler instance for future loads
-    if (!originalGrid.value || originalGrid.value.length === 0) {
+    const cfgInstance = cfg ?? (getShuffleConfig ? getShuffleConfig() : null)
+    if (!cfgInstance) return false
+
+    if (!originalGrid.value || originalGrid.value.empty()) {
       try {
-        const cfgInstance = cfg ?? (getShuffleConfig ? getShuffleConfig() : null)
-        const newShuffler = cfgInstance ? new wasmModule.value.GridShuffler(cfgInstance) : new wasmModule.value.GridShuffler(new wasmModule.value.ShuffleConfig())
-        if (shufflerInstance.value) {
-          try {
-            shufflerInstance.value.delete()
-          } catch (e) {
-            console.warn('failed to delete old shuffler', e)
-          }
+        if (!shufflerInstance.value) {
+          shufflerInstance.value = new wasmModule.value.GridShuffler()
         }
-        shufflerInstance.value = newShuffler
+        shufflerInstance.value.setConfig(cfgInstance)
         return true
       } catch (e) {
         console.error(e)
@@ -205,80 +223,25 @@ export function useGridShuffle(
       }
     }
 
-    const prevShuffler = shufflerInstance.value
-    const prevTotal = totalPages.value
-    const prevIndex = currentIndex.value
-    const prevManual = cloneDeep(manuallyModifiedGrids.value)
-
     try {
-      const cfgInstance = cfg ?? (getShuffleConfig ? getShuffleConfig() : null)
-      const newShuffler = cfgInstance ? new wasmModule.value.GridShuffler(cfgInstance) : new wasmModule.value.GridShuffler(new wasmModule.value.ShuffleConfig())
-
-      const success = newShuffler.setGrid(originalGrid.value)
-      if (!success) {
-        alert('C++ shuffler 無法解析座位配置。')
-        try { newShuffler.delete() } catch {}
-        return false
+      if (!shufflerInstance.value) {
+        shufflerInstance.value = new wasmModule.value.GridShuffler()
+        shufflerInstance.value.setGrid(originalGrid.value)
       }
 
-      // If there were generated pages before, regenerate with new config so indices remain meaningful
-      if (prevTotal > 0) {
-        try {
-          await newShuffler.shuffle()
-        } catch (e) {
-          console.warn('newShuffler.shuffle() failed', e)
-        }
-      }
+      shufflerInstance.value.setConfig(cfgInstance)
 
-      const newSize = newShuffler.getSize()
-
-      // Replace native instance only after success to avoid losing previous state on failure
-      shufflerInstance.value = newShuffler
-      if (prevShuffler) {
-        try {
-          prevShuffler.delete()
-        } catch (e) {
-          console.warn('failed to delete prev shuffler', e)
-        }
-      }
-
-      totalPages.value = newSize
-      currentIndex.value = Math.min(prevIndex, newSize)
-
-      if (options.preserveManual) {
-        const newManual: Record<number, Grid> = {}
-        for (const kStr of Object.keys(prevManual)) {
-          const k = Number(kStr)
-          if (k >= 1 && k <= newSize) newManual[k] = prevManual[k] || []
-        }
-        manuallyModifiedGrids.value = newManual
-      } else {
-        manuallyModifiedGrids.value = {}
-      }
-
-      // Update currentGrid to reflect new shuffler state (or stay original)
-      if (showOriginal.value) {
-        currentGrid.value = originalGrid.value
-      } else if (currentIndex.value > 0) {
-        try {
-          currentGrid.value = shufflerInstance.value.getGridAt(currentIndex.value - 1)
-        } catch (e) {
-          console.warn('getGridAt failed after applying config', e)
-          currentGrid.value = originalGrid.value
-        }
-      } else {
-        currentGrid.value = originalGrid.value
+      // 保留已有的打亂結果，但提醒用戶
+      if (totalPages.value > 0) {
+        alert(
+          '約束已套用，但現有的分配結果是基於舊約束產生的，可能不完全滿足新約束。建議重新洗牌以獲得符合新約束的分配結果。',
+        )
       }
 
       return true
     } catch (e) {
       console.error('applyConfig failed', e)
-      // Attempt to restore previous state
-      if (!shufflerInstance.value && prevShuffler) shufflerInstance.value = prevShuffler
-      totalPages.value = prevTotal
-      currentIndex.value = prevIndex
-      manuallyModifiedGrids.value = prevManual
-      alert('套用約束失敗，已還原至先前狀態。')
+      alert('套用約束失敗。')
       return false
     }
   }

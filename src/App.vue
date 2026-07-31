@@ -78,13 +78,11 @@ import { Position } from '@/utils/Position.ts'
 // ==========================================
 const wasm = useWasm()
 const constraints = useConstraintsConfig()
-const grid = useGridShuffle(
-  wasm.wasmModule,
-  wasm.shufflerInstance,
-  () => constraints.buildWasmConfig(wasm.wasmModule.value)
+const grid = useGridShuffle(wasm.wasmModule, wasm.wasmReady, wasm.shufflerInstance, () =>
+  constraints.buildWasmConfig(wasm.wasmModule.value),
 )
 const colorConfig = useColorConfig()
-const fileIO = useFileIO()
+const fileIO = useFileIO(wasm.wasmModule)
 
 const appVersion = __APP_VERSION__
 
@@ -100,9 +98,9 @@ const taggedRow = computed(() => taggedCell.value?.row ?? null)
 const taggedCol = computed(() => taggedCell.value?.col ?? null)
 
 // Choose which grid to render
-const renderedGrid = computed<Grid>(() => {
-  if (!grid.isGridLoaded.value) return []
-  if (grid.showOriginal.value) return grid.originalGrid.value
+const renderedGrid = computed<Grid | null>(() => {
+  if (!grid.isGridLoaded.value) return new wasm.wasmModule.value!.Grid()
+  if (grid.showOriginal.value && grid.originalGrid.value) return grid.originalGrid.value
   return grid.currentGrid.value
 })
 
@@ -125,15 +123,16 @@ const handleCSVImport = async (file: File) => {
   if (!wasm.wasmReady.value) return
   try {
     const text = await fileIO.readTextFile(file)
-    const parsed = fileIO.parseCSV(text)
-    if (parsed.length === 0) return
+    const parsed = wasm.wasmModule.value!.Grid.fromCSV(text)
+    if (parsed.empty()) return
     const success = grid.loadNewGrid(parsed)
     if (success) {
       taggedCell.value = null
       statusText.value = `已成功導入檔案：${file.name}`
     }
-  } catch {
+  } catch (e) {
     alert('檔案讀取失敗。')
+    console.error(e)
   }
 }
 
@@ -141,19 +140,20 @@ const handleXLSXImport = async (file: File) => {
   if (!wasm.wasmReady.value) return
   try {
     const parsed = await fileIO.parseXLSX(file)
-    if (parsed.length === 0) return
+    if (parsed.empty()) return
     const success = grid.loadNewGrid(parsed)
     if (success) {
       taggedCell.value = null
       statusText.value = `已成功導入檔案：${file.name}`
     }
-  } catch {
+  } catch (e) {
     alert('檔案讀取失敗。')
+    console.error(e)
   }
 }
 
 const handleGridExport = async () => {
-  if (grid.currentGrid.value.length === 0) return
+  if (grid.currentGrid.value?.empty()) return
 
   if (grid.showOriginal.value) {
     const confirmChoice = confirm('這是原始名單，確定要導出嗎？\n\n建議先執行洗牌操作後再導出。')
@@ -190,11 +190,11 @@ const handleGridExport = async () => {
     const writable = await fileHandle.createWritable()
 
     if (actualFileName.endsWith('.xlsx')) {
-      const excelData = fileIO.generateXLSXBuffer(grid.currentGrid.value)
+      const excelData = fileIO.generateXLSXBuffer(grid.currentGrid.value!)
       await writable.write(excelData)
       statusText.value = `已成功匯出 Excel：${actualFileName}`
     } else if (actualFileName.endsWith('.csv')) {
-      const csvData = fileIO.generateCSVContent(grid.currentGrid.value)
+      const csvData = grid.currentGrid.value!.toCSVString()
       await writable.write(csvData)
       statusText.value = `已成功匯出 CSV：${actualFileName}`
     }
@@ -243,8 +243,8 @@ const handleConstraintsImport = async (file: File) => {
       // Try to apply constraints immediately if wasm is ready
       if (wasm.wasmReady.value && typeof grid.applyConfig === 'function') {
         const cfg = constraints.buildWasmConfig(wasm.wasmModule.value)
-        const applied = grid.applyConfig(cfg, { preserveManual: true })
-        if (applied) {
+        const applied = grid.applyConfig(cfg)
+        if (await applied) {
           statusText.value += ' 已套用約束。'
         } else {
           statusText.value += ' 套用約束失敗，請重新導入座位配置或手動洗牌。'

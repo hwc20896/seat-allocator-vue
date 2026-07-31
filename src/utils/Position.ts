@@ -1,4 +1,4 @@
-import type {GridOf} from '@/assets/wasm/alloc_algo'
+import type { Grid } from '@/assets/wasm/alloc_algo'
 
 export class Position{
   constructor(public row: number, public col: number) {}
@@ -15,26 +15,28 @@ export class Position{
   }
 }
 
-/*
-template <class T>
-T[][] swap(T[][] grid, Position pos1, Position pos2){
-  std::swap(grid[pos1.row][pos1.col], grid[pos2.row][pos2.col]);
-  return grid;
-}
- */
-export const swap = <T>(grid: GridOf<T>, pos1: Position, pos2: Position): GridOf<T> => {
+export const swap = (grid: Grid, pos1: Position, pos2: Position): Grid => {
+  const result = grid.clone();
+
   const isPositionValid = (pos: Position): boolean => {
-    const row = grid[pos.row]
-    return row !== undefined && pos.col >= 0 && pos.col < row.length
+    return (
+      pos.row >= 0 && pos.row < result.rowCount() && pos.col >= 0 && pos.col < result.colCount()
+    )
   }
 
-  if (!isPositionValid(pos1)) throw new RangeError(`Position ${pos1} out of range`)
+  if (!isPositionValid(pos1)) {
+    throw new RangeError(`Position ${pos1} out of range`);
+  }
 
-  if (!isPositionValid(pos2)) throw new RangeError(`Position ${pos2} out of range`)
+  if (!isPositionValid(pos2)) {
+    throw new RangeError(`Position ${pos2} out of range`);
+  }
 
-  const temp = grid[pos1.row]![pos1.col]!
-  grid[pos1.row]![pos1.col] = grid[pos2.row]![pos2.col]!
-  grid[pos2.row]![pos2.col] = temp
+  const temp = result.getByPos(pos1.row, pos1.col)
 
-  return grid
+  result.setByPos(pos1.row, pos1.col, result.getByPos(pos2.row, pos2.col))
+
+  result.setByPos(pos2.row, pos2.col, temp)
+
+  return result
 }

@@ -2,16 +2,16 @@
   <div class="grid-displayer-container">
     <table class="grid-displayer">
       <tbody>
-        <tr v-for="(row, rIdx) in grid" :key="rIdx">
-          <td v-for="(cell, cIdx) in row" :key="cIdx" class="grid-cell">
+        <tr v-for="rIdx in grid?.rowCount()" :key="rIdx">
+          <td v-for="cIdx in grid?.colCount()" :key="cIdx" class="grid-cell">
             <GridCell
-              :text="cell"
-              :color="getCellColor(cell)"
-              :is-tagged="taggedRow === rIdx && taggedCol === cIdx"
-              :is-swapped="!isShuffling && isCellSwapped(new Position(rIdx, cIdx))"
+              :text="grid?.getByPos(rIdx - 1, cIdx - 1) || ''"
+              :color="getCellColor(grid?.getByPos(rIdx - 1, cIdx - 1) || '')"
+              :is-tagged="taggedRow === rIdx - 1 && taggedCol === cIdx - 1"
+              :is-swapped="!isShuffling && isCellSwapped(new Position(rIdx - 1, cIdx - 1))"
               :is-currently-original="isCurrentlyOriginal"
               :is-shuffling="isShuffling"
-              @click="$emit('cell-click', new Position(rIdx, cIdx))"
+              @click="$emit('cell-click', new Position(rIdx - 1, cIdx - 1))"
             />
           </td>
         </tr>
@@ -26,7 +26,7 @@ import type { Grid } from '@/assets/wasm/alloc_algo'
 import { Position } from '@/utils/Position.ts'
 
 defineProps<{
-  grid: Grid
+  grid: Grid | null
   isShuffling: boolean
   taggedRow: number | null
   taggedCol: number | null

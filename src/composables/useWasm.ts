@@ -2,12 +2,12 @@ import { ref, shallowRef, onBeforeUnmount } from 'vue'
 import initWasmModule from '@/assets/wasm/alloc_algo.js'
 import type { GridShuffler, ModuleExports } from '@/assets/wasm/alloc_algo'
 
+const wasmModule = shallowRef<ModuleExports | null>(null) //  const auto wasmModule = shallowRef<ModuleExports*>(nullptr);
+
+const shufflerInstance = shallowRef<GridShuffler | null>(null)
+const wasmReady = ref(false)
+
 export function useWasm() {
-  const wasmModule = shallowRef<ModuleExports | null>(null) //  const auto wasmModule = shallowRef<ModuleExports*>(nullptr);
-
-  const shufflerInstance = shallowRef<GridShuffler | null>(null)
-  const wasmReady = ref(false)
-
   const initWasm = async () => {
     try {
       wasmModule.value = await initWasmModule({

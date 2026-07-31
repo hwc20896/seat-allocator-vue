@@ -1,7 +1,8 @@
 import * as XLSX from 'xlsx'
-import type { Grid } from '@/assets/wasm/alloc_algo'
+import type { Grid, ModuleExports, PointerOf } from '@/assets/wasm/alloc_algo'
+import type { ShallowRef } from 'vue'
 
-export function useFileIO() {
+export function useFileIO(wasmModule: ShallowRef<PointerOf<ModuleExports>>) {
   const readTextFile = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -9,17 +10,6 @@ export function useFileIO() {
       reader.onerror = reject
       reader.readAsText(file)
     })
-  }
-
-  const parseCSV = (text: string): Grid => {
-    return text
-      .split(/\r?\n/)
-      .map((row) => row.split(',').map((cell) => cell.trim()))
-      .filter((row) => row.length > 0 && row.some((cell) => cell !== ''))
-  }
-
-  const generateCSVContent = (grid: Grid): string => {
-    return grid.map((row) => row.join(',')).join('\n')
   }
 
   const parseXLSX = (file: File): Promise<Grid> => {
@@ -30,16 +20,33 @@ export function useFileIO() {
           const data = reader.result as ArrayBuffer
           const wb = XLSX.read(data, { type: 'array' })
           const firstSheetName = wb.SheetNames[0]
-          if (!firstSheetName) return resolve([])
+          if (!firstSheetName) return resolve(new wasmModule.value!.Grid())
           const ws = wb.Sheets[firstSheetName]
-          if (!ws) return resolve([])
+          if (!ws) return resolve(new wasmModule.value!.Grid())
           const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false })
-          const grid: Grid = raw
-            .map((row) =>
-              row.map((cell) => (cell === null || cell === undefined ? '' : String(cell).trim()))
-            )
-            .filter((row) => row.length > 0 && row.some((cell) => cell !== ''))
-          resolve(grid)
+
+          const filteredRows = raw.filter(
+            (row) =>
+              row.length > 0 &&
+              row.some((cell) => cell !== null && cell !== undefined && cell !== ''),
+          )
+
+          if (filteredRows.length === 0) return resolve(new wasmModule.value!.Grid())
+
+          const rowCount = filteredRows.length
+          const colCount = Math.max(...filteredRows.map((row) => row.length))
+
+          const flatData: string[] = []
+          for (let r = 0; r < rowCount; r++) {
+            for (let c = 0; c < colCount; c++) {
+              const cell = filteredRows[r]?.[c]
+              flatData.push(cell === null || cell === undefined ? '' : String(cell).trim())
+            }
+          }
+          console.log(Array.isArray(flatData))
+          console.log(flatData.every((x) => typeof x === 'string'))
+
+          resolve(new wasmModule.value!.Grid(rowCount, colCount, flatData))
         } catch (err) {
           reject(err)
         }
@@ -50,7 +57,19 @@ export function useFileIO() {
   }
 
   const generateXLSXBuffer = (grid: Grid): ArrayBuffer => {
-    const ws = XLSX.utils.aoa_to_sheet(grid)
+    const rowCount = grid.rowCount()
+    const colCount = grid.colCount()
+
+    const rows: string[][] = []
+    for (let r = 0; r < rowCount; r++) {
+      const row: string[] = []
+      for (let c = 0; c < colCount; c++) {
+        row.push(grid.getByPos(r, c))
+      }
+      rows.push(row)
+    }
+
+    const ws = XLSX.utils.aoa_to_sheet(rows)
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Sheet1')
     return XLSX.write(wb, { bookType: 'xlsx', type: 'array' }) as ArrayBuffer
@@ -58,9 +77,7 @@ export function useFileIO() {
 
   return {
     readTextFile,
-    parseCSV,
     parseXLSX,
-    generateCSVContent,
     generateXLSXBuffer,
   }
 }
