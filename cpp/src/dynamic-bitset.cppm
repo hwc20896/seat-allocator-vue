@@ -2,39 +2,56 @@ module;
 
 #include <vector>
 #include <algorithm>
+#include <cstdint>
+#include <limits>
+#include <stdexcept>
+#include <format>
 
 export module Algorithm.DynamicBitset;
 
 export class DynamicBitset final {
     public:
-        explicit DynamicBitset(uint64_t size);
+        using SizeType = uint64_t;
 
-        void set(uint64_t index, bool value);
+        DynamicBitset() : bitCount_(0) {}
+
+        explicit DynamicBitset(SizeType size);
+
+        ~DynamicBitset() = default;
+
+        void set(SizeType index, bool value);
 
         [[nodiscard]]
-        bool test(uint64_t index) const;
+        bool test(SizeType index) const;
 
         void reset();
 
         [[nodiscard]]
-        uint64_t size() const noexcept;
+        SizeType size() const noexcept;
 
     private:
-        uint64_t bitCount_;
-        std::vector<uint64_t> data_;
+        SizeType bitCount_;
+        std::vector<SizeType> data_;
 
-        static constexpr uint64_t BITS_PER_WORD = 64;
+        static constexpr SizeType BITS_PER_WORD = std::numeric_limits<SizeType>::digits;
 };
 
-module :private;
-
-DynamicBitset::DynamicBitset(const uint64_t size)
+DynamicBitset::DynamicBitset(const SizeType size)
     : bitCount_(size),
       data_((size + BITS_PER_WORD - 1) / BITS_PER_WORD, 0) {}
 
-void DynamicBitset::set(const uint64_t index, const bool value) {
-    const uint64_t wordIndex = index / BITS_PER_WORD;
-    const uint64_t bitIndex = index % BITS_PER_WORD;
+void DynamicBitset::set(const SizeType index, const bool value) {
+    const SizeType wordIndex = index / BITS_PER_WORD;
+    const SizeType bitIndex = index % BITS_PER_WORD;
+
+    if (wordIndex >= data_.size()) {
+        throw std::out_of_range(
+            "DynamicBitset::set: Index out of range. Index: " +
+            std::to_string(index) +
+            ", data_.size(): " +
+            std::to_string(data_.size())
+        );
+    }
 
     if (value) {
         data_[wordIndex] |= (1ULL << bitIndex);
@@ -43,9 +60,19 @@ void DynamicBitset::set(const uint64_t index, const bool value) {
     }
 }
 
-bool DynamicBitset::test(const uint64_t index) const {
-    const uint64_t wordIndex = index / BITS_PER_WORD;
-    const uint64_t bitIndex = index % BITS_PER_WORD;
+bool DynamicBitset::test(const SizeType index) const {
+    const SizeType wordIndex = index / BITS_PER_WORD;
+    const SizeType bitIndex = index % BITS_PER_WORD;
+
+    if (wordIndex >= data_.size()) {
+        throw std::out_of_range(
+            "DynamicBitset::test: Index out of range. Index: " +
+            std::to_string(index) +
+            ", data_.size(): " +
+            std::to_string(data_.size())
+        );
+    }
+
     return (data_[wordIndex] & (1ULL << bitIndex)) != 0;
 }
 
@@ -53,6 +80,6 @@ void DynamicBitset::reset() {
     std::ranges::fill(data_, 0);
 }
 
-uint64_t DynamicBitset::size() const noexcept {
+DynamicBitset::SizeType DynamicBitset::size() const noexcept {
     return bitCount_;
 }
