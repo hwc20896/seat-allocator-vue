@@ -12,13 +12,16 @@ add_executable(alloc_algo
     wasm-bridge.cpp
 )
 
-target_sources(alloc_algo PRIVATE
+target_sources(
+    alloc_algo PRIVATE
     FILE_SET CXX_MODULES
     FILES
-    src/constraints.cppm
-    src/dynamic-bitset.cppm
-    src/shuffler.cppm
-    src/utils.cppm
+        src/constraints.cppm
+        src/dynamic-bitset.cppm
+        src/shuffler.cppm
+        src/utils.cppm
+        src/grid.cppm
+        src/configs.cppm
 )
 
 target_include_directories(alloc_algo PRIVATE ${CMAKE_SOURCE_DIR}/src/)
@@ -28,6 +31,7 @@ target_link_libraries(alloc_algo PRIVATE
 )
 
 target_precompile_headers(alloc_algo PRIVATE
+    <vector>
     <algorithm>
     <unordered_map>
     <random>
@@ -49,7 +53,6 @@ if(EMSCRIPTEN)
     # Compile options (Crucial: Add --bind)
     target_compile_options(alloc_algo PRIVATE
         -O3
-        -fexceptions
         -sASYNCIFY
     )
 
