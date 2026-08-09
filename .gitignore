@@ -41,3 +41,6 @@ __screenshots__/
 *.wasm
 src/assets/wasm/alloc_algo.js
 src/__test_datas__/*
+
+# C++
+cmake-build-*/
