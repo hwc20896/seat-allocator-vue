@@ -9,6 +9,7 @@ const pkg = JSON.parse(
 
 export default defineConfig({
   plugins: [vue()],
+  base: '/seat-allocator-vue/',
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

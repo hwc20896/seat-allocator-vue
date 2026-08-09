@@ -12,7 +12,7 @@ export function useWasm() {
     try {
       wasmModule.value = await initWasmModule({
         locateFile: (path: string) => {
-          if (path.endsWith('.wasm')) return '/alloc_algo.wasm'
+          if (path.endsWith('.wasm')) return `${import.meta.env.BASE_URL}${path}`
           return path
         },
       })
