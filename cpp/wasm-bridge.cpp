@@ -3,11 +3,11 @@
 #include <string>
 #include <vector>
 
-import Algorithm.Constraints;
-import Algorithm.Shuffler;
-import Algorithm.Utils;
-import Algorithm.Grid;
-import Algorithm.Configs;
+#include "src/constraints.hpp"
+#include "src/shuffler.hpp"
+#include "src/utils.hpp"
+#include "src/grid.hpp"
+#include "src/configs.hpp"
 
 using namespace emscripten;
 

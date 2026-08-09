@@ -4,44 +4,14 @@ project(seat_allocator_vue_algo LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_SCAN_FOR_MODULES ON)
-
-find_package(spdlog CONFIG REQUIRED)
 
 add_executable(alloc_algo
     wasm-bridge.cpp
 )
 
-target_sources(
+target_include_directories(
     alloc_algo PRIVATE
-    FILE_SET CXX_MODULES
-    FILES
-        src/constraints.cppm
-        src/dynamic-bitset.cppm
-        src/shuffler.cppm
-        src/utils.cppm
-        src/grid.cppm
-        src/configs.cppm
-)
-
-target_include_directories(alloc_algo PRIVATE ${CMAKE_SOURCE_DIR}/src/)
-
-target_link_libraries(alloc_algo PRIVATE
-    spdlog::spdlog
-)
-
-target_precompile_headers(alloc_algo PRIVATE
-    <vector>
-    <algorithm>
-    <unordered_map>
-    <random>
-    <optional>
-    <utility>
-    <chrono>
-    <format>
-    <ranges>
-    <limits>
-    <array>
+    ${CMAKE_SOURCE_DIR}/src/
 )
 
 if(EMSCRIPTEN)

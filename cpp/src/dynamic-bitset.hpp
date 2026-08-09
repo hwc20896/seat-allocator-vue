@@ -1,4 +1,4 @@
-module;
+#pragma once
 
 #include <vector>
 #include <algorithm>
@@ -7,9 +7,7 @@ module;
 #include <stdexcept>
 #include <format>
 
-export module Algorithm.DynamicBitset;
-
-export class DynamicBitset final {
+class DynamicBitset final {
     public:
         using SizeType = uint64_t;
 

@@ -1,4 +1,4 @@
-module;
+#pragma once
 
 #include <vector>
 #include <string>
@@ -7,9 +7,7 @@ module;
 #include <iostream>
 #include <ranges>
 
-export module Algorithm.Grid;
-
-export class Grid final {
+class Grid final {
     public /* Statics */:
         static Grid fromCSVString(const std::string& csvString);
 
@@ -120,7 +118,6 @@ Grid Grid::fromCSVString(const std::string& csvString) {
                 field.clear();
                 i++;
             } else if (c == '\r' || c == '\n') {
-                // 如果是連續的換行或空行則直接跳過
                 if (row.empty() && field.empty()) {
                     i++;
                     continue;

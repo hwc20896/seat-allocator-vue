@@ -4,7 +4,6 @@ project(seat_allocator_vue_algo_benchmark LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_SCAN_FOR_MODULES ON)
 
 find_package(benchmark CONFIG REQUIRED)
 
@@ -12,16 +11,9 @@ add_executable(seat_allocator_vue_algo_benchmark
     test.cpp
 )
 
-target_sources(
+target_include_directories(
     seat_allocator_vue_algo_benchmark PRIVATE
-    FILE_SET CXX_MODULES
-    BASE_DIRS ../src
-    FILES
-        ../src/constraints.cppm
-        ../src/shuffler.cppm
-        ../src/utils.cppm
-        ../src/dynamic-bitset.cppm
-        ../src/grid.cppm
+        ../src
 )
 
 target_compile_definitions(

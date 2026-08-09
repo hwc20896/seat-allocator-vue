@@ -1,13 +1,10 @@
 #include <print>
-#include <ranges>
 #include <iostream>
 #include <chrono>
 #include <benchmark/benchmark.h>
 
-import Algorithm.Constraints;
-import Algorithm.Shuffler;
-import Algorithm.Utils;
-import Algorithm.Grid;
+#include "shuffler.hpp"
+#include "grid.hpp"
 
 static Grid makeGrid(const int rows, const int cols) {
     Grid grid(rows, cols);
@@ -69,7 +66,7 @@ static void BM_Shuffle8Neighborhood(benchmark::State& state) {
     GridShuffler shuffler{};
     shuffler.setConfig(constrainedConfig);
 
-    constexpr auto annealingConfig = GridShuffler::AnnealingConfig{.maxAttempts = 2};
+    constexpr auto annealingConfig = AnnealingConfig{.maxAttempts = 2};
     shuffler.setAnnealingConfig(annealingConfig);
 
     int64_t error_count = 0;
@@ -106,7 +103,7 @@ static void BM_Shuffle8Neighborhood4by4(benchmark::State& state) {
     GridShuffler shuffler{};
     shuffler.setConfig(constrainedConfig);
 
-    const auto annealingConfig = GridShuffler::AnnealingConfig{.maxAttempts = maxAttempts};
+    const auto annealingConfig = AnnealingConfig{.maxAttempts = maxAttempts};
     shuffler.setAnnealingConfig(annealingConfig);
 
     int64_t error_count = 0;

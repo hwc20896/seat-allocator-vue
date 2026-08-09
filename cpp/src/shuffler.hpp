@@ -1,4 +1,4 @@
-module;
+#pragma once
 
 #include <algorithm>
 #include <unordered_map>
@@ -14,34 +14,27 @@ module;
     #include <emscripten.h>
 #endif
 
-export module Algorithm.Shuffler;
+#include "configs.hpp"
+#include "constraints.hpp"
+#include "grid.hpp"
+#include "dynamic-bitset.hpp"
+#include "utils.hpp"
 
-import Algorithm.Constraints;
-import Algorithm.Utils;
-import Algorithm.DynamicBitset;
-import Algorithm.Grid;
-import Algorithm.Configs;
+template <class... Ts>
+struct overloaded : Ts... { using Ts::operator()...; };
 
-namespace {
-    template <class T>
-    concept Callable = requires { T::operator(); };
+struct ResultType {
+    int doneAtAttempt;
+    int doneAtStep;
+    int64_t tookMUS;
+};
 
-    template <Callable... Ts>
-    struct overloaded : Ts... { using Ts::operator()...; };
-
-    struct ResultType {
-        int doneAtAttempt;
-        int doneAtStep;
-        int64_t tookMUS;
-    };
-}
-
-export enum class ShuffleError : int {
+enum class ShuffleError : int {
     EmptyGrid,
     MaxAttemptsReached
 };
 
-export class GridShuffler final {
+class GridShuffler final {
     public:
         GridShuffler();
 
@@ -328,10 +321,11 @@ std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
             );
             return ResultType{.doneAtAttempt=attempt, .doneAtStep=step, .tookMUS=chrn::duration_cast<chrn::microseconds>(end - algoStart).count()};
         }
-
+#ifdef __EMSCRIPTEN__
         if (attempt % 200 == 0) {
             emscripten_sleep(0);
         }
+#endif
     }
     return std::unexpected(ShuffleError::MaxAttemptsReached);
 }

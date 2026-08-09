@@ -1,12 +1,12 @@
-module;
+#pragma once
 
+#include <vector>
 #include <string>
+#include <compare>
+#include <vector>
+#include "constraints.hpp"
 
-export module Algorithm.Configs;
-
-import Algorithm.Constraints;
-
-export struct AnnealingConfig {
+struct AnnealingConfig {
     double initialTemperature = 5.0;
     double coolingRate = 0.99995;
     int maxSteps = 2'000'000;
@@ -15,7 +15,7 @@ export struct AnnealingConfig {
     constexpr auto operator<=>(const AnnealingConfig&) const noexcept = default;
 };
 
-export struct PenaltyWeights {
+struct PenaltyWeights {
     int fixedPoint = 1000;
     int absolutePosition = 2000;
     int originalNeighbor = 10;
@@ -25,7 +25,7 @@ export struct PenaltyWeights {
     constexpr auto operator<=>(const PenaltyWeights&) const noexcept = default;
 };
 
-export struct ShuffleConfig {
+struct ShuffleConfig {
     bool allow_fixed_points = false;
     bool allow_original_neighbors = false;
     bool diagonals_are_neighbors = false;
