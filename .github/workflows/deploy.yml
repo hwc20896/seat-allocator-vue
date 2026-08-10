@@ -1,0 +1,45 @@
+name: Build & Deploy GitHub Pages
+
+on:
+  push:
+    branches: [ master ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu‑latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Emscripten EMSDK
+        uses: emscripten-core/setup-emsdk@v1
+        with:
+          version: latest
+
+      - name: CMake configure & build WASM
+        run: |
+          mkdir -p algo-build
+          cd algo-build
+          emcmake cmake ../cpp -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(nproc)
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Vite build
+        run: npm run build
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
