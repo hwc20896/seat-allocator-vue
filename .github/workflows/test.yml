@@ -1,0 +1,12 @@
+name: Test Runner
+
+on:
+  push:
+    branches: [master, main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hello World
+        run: echo "Hello from GitHub Actions!"
