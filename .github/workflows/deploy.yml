@@ -21,6 +21,7 @@ jobs:
 
       - name: CMake configure & build WASM
         run: |
+          source $EMSDK/emsdk_env.sh
           mkdir -p algo-build
           cd algo-build
           emcmake cmake ../cpp -DCMAKE_BUILD_TYPE=Release
