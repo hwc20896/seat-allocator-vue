@@ -1,1 +1,44 @@
+#  ===== Basic Rule: All text files use LF =====
 * text=auto eol=lf
+
+*.js    text eol=lf
+*.ts    text eol=lf
+*.vue   text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.html  text eol=lf
+*.css   text eol=lf
+*.csv   text eol=lf
+*.txt   text eol=lf
+*.cpp   text eol=lf
+*.cppm  text eol=lf
+*.h     text eol=lf
+CMakeLists.txt text eol=lf
+
+#  ===== Script Line Break Exceptions (Key to Cross-Platform Builds) =====
+#  Shell scripts must use LF; CRLF will cause execution failure on Linux/macOS
+*.sh text eol=lf
+
+#  Windows batch files must use CRLF; LF will cause execution failure (the global rule must be overridden)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+#  ===== Binary Files: No Line Break Conversion =====
+*.wasm  binary
+*.xlsx  binary
+*.ico   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+*.woff  binary
+*.woff2 binary
+
+#  ===== GitHub Language Statistics and PR Differences Exclusion (Build Artifacts) =====
+algo-build/         linguist-vendored
