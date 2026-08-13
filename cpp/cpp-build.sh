@@ -1,2 +1,2 @@
 #!/bin/bash
-cmake --build cmake-build-release/
+cmake --build ../algo-build

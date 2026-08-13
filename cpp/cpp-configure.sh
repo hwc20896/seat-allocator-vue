@@ -1,2 +1,2 @@
 #!/bin/bash
-emcmake cmake -S . -B cmake-build-release/ -DCMAKE_BUILD_TYPE=Release
+emcmake cmake -S . -B ../algo-build -DCMAKE_BUILD_TYPE=Release
