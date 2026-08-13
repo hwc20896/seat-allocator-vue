@@ -44,3 +44,4 @@ src/__test_datas__/*
 
 # C++
 cmake-build-*/
+algo-build/
