@@ -17,16 +17,8 @@ target_include_directories(
 if(EMSCRIPTEN)
     message(STATUS "Building for WebAssembly with Emscripten")
 
-    # Output alloc_algo.js and alloc_algo.wasm
     set_target_properties(alloc_algo PROPERTIES SUFFIX ".js")
 
-    # Compile options (Crucial: Add --bind)
-    target_compile_options(alloc_algo PRIVATE
-        -O3
-        -sASYNCIFY
-    )
-
-    # Link options
     target_link_options(alloc_algo PRIVATE
         "-O3"
         "-sMODULARIZE=1"
