@@ -28,7 +28,7 @@
 
 - Node.js：`^22.18.0` 或 `>=24.12.0`（見 package.json 的 `engines`；建議用 nvm / nvm-windows 管理）
 - npm（隨 Node 附帶）
-- CMake：主工程需 >= 3.22；`cpp/test` 需 >= 4.3（建議直接安裝新版）
+- CMake：主工程和 `cpp/test` 均需 >= 3.22
 - emsdk：編譯 WebAssembly 需要（emscripten）
 - （選用）Google Benchmark：執行 `cpp/test` 基準測試時需要，可透過 vcpkg 或系統套件管理安裝
 
@@ -108,8 +108,8 @@ source ./emsdk_env.sh
 ```sh
 cd cpp
 # Windows (PowerShell)：
-.\cpp-configure.bat   # 等同 emcmake cmake -S . -B cmake-build-release/ -DCMAKE_BUILD_TYPE=Release
-.\cpp-build.bat       # 等同 cmake --build cmake-build-release/
+.\cpp-configure.bat   # 等同 emcmake cmake -S . -B ../algo-build/ -DCMAKE_BUILD_TYPE=Release
+.\cpp-build.bat       # 等同 cmake --build ../algo-build/
 
 # Linux / macOS：
 ./cpp-configure.sh
@@ -120,8 +120,8 @@ cd cpp
 
 ```sh
 cd cpp
-emcmake cmake -S . -B cmake-build-release -DCMAKE_BUILD_TYPE=Release
-cmake --build cmake-build-release --parallel
+emcmake cmake -S . -B ../algo-build -DCMAKE_BUILD_TYPE=Release
+cmake --build ../algo-build --parallel
 ```
 
 ### 建置產出位置

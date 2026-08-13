@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.3)
+cmake_minimum_required(VERSION 3.22)
 
 project(seat_allocator_vue_algo_benchmark LANGUAGES CXX)
 
