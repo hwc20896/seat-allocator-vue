@@ -20,9 +20,9 @@
     </DropDownMenu>
 
     <!-- Colors Configuration -->
-    <DropDownMenu label="顔色設定 (Color)">
+    <DropDownMenu label="顏色設定 (Color)">
       <label class="dropdown-item file-label">
-        導入顔色配置
+        導入顏色配置
         <span class="key-shortcut-indicator">Ctrl + Shift + C</span>
         <input
           ref="colorInputRef"
