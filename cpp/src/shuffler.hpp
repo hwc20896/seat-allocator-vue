@@ -31,6 +31,7 @@ struct ResultType {
 
 enum class ShuffleError : int {
     EmptyGrid,
+    Unsatisfiable,
     MaxAttemptsReached
 };
 
@@ -228,6 +229,11 @@ std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
         ) + getPairEnergyForElements(allElements_, posMap);
 
         auto temperature = annealingConfig_.initialTemperature;
+
+        if (nonFrozenIndices_.size() < 2 && totalEnergy > 0) {
+            return std::unexpected(ShuffleError::Unsatisfiable);
+        }
+
         std::uniform_int_distribution<uint64_t> dist{0ULL, nonFrozenIndices_.size() - 1};
         std::uniform_real_distribution probDist{0.0, 1.0};
 
@@ -452,7 +458,7 @@ void GridShuffler::rebuildConstraints() {
         std::visit(overloaded{
             [&](const ForceRow& c) {
                 if (const auto it = stringToID_.find(c.first);
-                    it != stringToID_.end()
+                    it != stringToID_.end() && c.second >= 0 && c.second < gridRow_
                 ) {
                     forcedRow_[it->second] = c.second;
                 }
@@ -466,7 +472,7 @@ void GridShuffler::rebuildConstraints() {
             },
             [&](const ForceCol& c) {
                 if (const auto it = stringToID_.find(c.first);
-                    it != stringToID_.end()
+                    it != stringToID_.end() && c.second >= 0 && c.second < gridCol_
                 ) {
                     forcedCol_[it->second] = c.second;
                 }
@@ -481,6 +487,7 @@ void GridShuffler::rebuildConstraints() {
                 if (stringToID_.contains(c.first) && stringToID_.contains(c.second)) {
                     const int id1 = stringToID_[c.first];
                     const int id2 = stringToID_[c.second];
+                    if (id1 == id2) return;
                     forbidShareRowAdj_[id1].push_back(id2);
                     forbidShareRowAdj_[id2].push_back(id1);
                 }
@@ -489,6 +496,7 @@ void GridShuffler::rebuildConstraints() {
                 if (stringToID_.contains(c.first) && stringToID_.contains(c.second)) {
                     const int id1 = stringToID_[c.first];
                     const int id2 = stringToID_[c.second];
+                    if (id1 == id2) return;
                     forbidShareColAdj_[id1].push_back(id2);
                     forbidShareColAdj_[id2].push_back(id1);
                 }

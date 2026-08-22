@@ -77,6 +77,7 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
 
     enum_<ShuffleError>("ShuffleError", enum_value_type::string)
         .value("EmptyGrid", ShuffleError::EmptyGrid)
+        .value("Unsatisfiable", ShuffleError::Unsatisfiable)
         .value("MaxAttemptsReached", ShuffleError::MaxAttemptsReached);
 
     class_<Grid>("Grid")
