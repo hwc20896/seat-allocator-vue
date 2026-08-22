@@ -8,14 +8,12 @@
   "configurePresets": [
     {
       "name": "release",
-      "displayName": "Release (vcpkg)",
-      "binaryDir": "${sourceDir}/cmake-build-release",
+      "displayName": "Release",
+      "binaryDir": "${sourceDir}/build-release",
       "generator": "Ninja",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_TOOLCHAIN_FILE": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
-        "VCPKG_TARGET_TRIPLET": "x64-mingw-static",
-        "VCPKG_HOST_TRIPLET": "x64-mingw-static",
         "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg-installed"
       }
     }
