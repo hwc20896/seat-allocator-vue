@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(benchmark CONFIG REQUIRED)
 
 add_executable(seat_allocator_vue_algo_benchmark
-    test.cpp
+    benchmark.cpp
 )
 
 target_include_directories(
