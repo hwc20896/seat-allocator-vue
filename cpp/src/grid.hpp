@@ -2,10 +2,9 @@
 
 #include <vector>
 #include <string>
-#include <string_view>
 #include <stdexcept>
-#include <iostream>
-#include <ranges>
+#include <ostream>
+#include <algorithm>
 
 class Grid final {
     public /* Statics */:

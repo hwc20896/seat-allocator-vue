@@ -3,7 +3,6 @@
 #include <vector>
 #include <string>
 #include <compare>
-#include <vector>
 #include "constraints.hpp"
 
 struct AnnealingConfig {
