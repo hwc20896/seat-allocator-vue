@@ -134,7 +134,9 @@ Grid Grid::fromCSVString(const std::string& csvString) {
                     );
                 }
 
+#ifdef KEEP_DEBUG_NOTE
                 std::println("row: {}", row);
+#endif
                 data.append_range(std::move(row));
                 row.clear();
                 rows++;
@@ -187,7 +189,7 @@ const std::string& Grid::operator[](const int row, const int col) const {
 }
 
 const std::string& Grid::operator[](const int index) const {
-    if (index >= this->size())
+    if (index < 0 || index >= this->size())
         throw std::out_of_range("Grid: Index Out of range");
     return data_[index];
 }
@@ -200,7 +202,7 @@ std::string& Grid::operator[](const int row, const int col) {
 }
 
 std::string& Grid::operator[](const int index) {
-    if (index >= this->size())
+    if (index < 0 || index >= this->size())
         throw std::out_of_range("Grid: Index Out of range");
     return data_[index];
 }
