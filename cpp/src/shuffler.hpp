@@ -110,6 +110,8 @@ class GridShuffler final {
 
         mutable std::mt19937 rng;
 
+        bool automaticAnnealing_ = true;
+
     private /* methods */:
         ArrayOf<NodeID> getNeighbors(int idx, bool diagonals) const;
 
@@ -162,6 +164,7 @@ void GridShuffler::setConfig(const ShuffleConfig& cfg) {
 
 void GridShuffler::setAnnealingConfig(const AnnealingConfig& cfg) {
     annealingConfig_ = cfg;
+    automaticAnnealing_ = false;
 }
 
 void GridShuffler::setPenaltyWeights(const PenaltyWeights& weights) {
@@ -194,15 +197,17 @@ std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
 
     const auto algoStart = chrn::high_resolution_clock::now();
 
-    const int dynamicMaxSteps = std::max(50'000, gridSize_ * 300);
+    if (automaticAnnealing_) {
+        const int dynamicMaxSteps = std::max(50'000, gridSize_ * 300);
 
-    const double T0 = -10.0 / std::log(0.5);
-    constexpr double Tend = 0.01;
-    const double alpha = std::pow(Tend / T0, 1.0 / dynamicMaxSteps);
+        const double T0 = -10.0 / std::log(0.5);
+        constexpr double Tend = 0.01;
+        const double alpha = std::pow(Tend / T0, 1.0 / dynamicMaxSteps);
 
-    annealingConfig_.maxSteps = dynamicMaxSteps;
-    annealingConfig_.initialTemperature = T0;
-    annealingConfig_.coolingRate = alpha;
+        annealingConfig_.maxSteps = dynamicMaxSteps;
+        annealingConfig_.initialTemperature = T0;
+        annealingConfig_.coolingRate = alpha;
+    }
 
     for (const auto attempt : std::views::iota(0, annealingConfig_.maxAttempts)) {
         auto state = std::views::iota(0, gridSize_) | std::ranges::to<ArrayOf<NodeID>>();
