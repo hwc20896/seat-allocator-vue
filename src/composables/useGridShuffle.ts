@@ -1,7 +1,8 @@
 import { computed, ref, type Ref, type ShallowRef, shallowRef, watch } from 'vue'
 import type { PointerOf, ModuleExports, GridShuffler, ShuffleConfig, Grid } from '@/assets/wasm/alloc_algo'
+import { getShuffleErrorMessage } from '@/utils/shuffleError.ts'
 import { swap, Position } from '@/utils/Position.ts'
-import { shuffle, cloneDeep } from 'lodash-es'
+import { shuffle } from 'lodash-es'
 
 export function useGridShuffle(
   wasmModule: ShallowRef<PointerOf<ModuleExports>>,
@@ -17,7 +18,7 @@ export function useGridShuffle(
   const showOriginal = ref(false)
   const manuallyModifiedGrids = shallowRef<Record<number, Grid>>({})
 
-  const isGridLoaded = computed(() => !originalGrid.value?.empty())
+  const isGridLoaded = computed(() => !!originalGrid.value && !originalGrid.value?.empty())
 
   watch(
     wasmReady,
@@ -118,7 +119,8 @@ export function useGridShuffle(
       console.timeEnd('Shuffle Response took')
 
       if (!shuffleResult.success){
-        alert(`Unable to shuffle the grid due to reason: ${shuffleResult.error}`);
+        console.warn(`Shuffle failed: ${shuffleResult.error}`)
+        alert(getShuffleErrorMessage(shuffleResult.error))
         return false
       }
       console.info(`Shuffle done in ${shuffleResult.data.tookMUS / 1000}ms.`);
