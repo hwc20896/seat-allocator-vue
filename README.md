@@ -30,7 +30,7 @@ npm install
 npm run dev
 ```
 
-開發伺服器預設位在 http://localhost:5173，於瀏覽器開啟即可使用。
+開發伺服器預設位在 http://localhost:5173 ，於瀏覽器開啟即可使用。
 
 ## 使用指南
 
