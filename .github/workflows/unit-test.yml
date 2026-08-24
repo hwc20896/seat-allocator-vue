@@ -36,6 +36,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y g++-14
 
+      - name: Show toolchain versions
+        run: |
+          g++-14 --version
+          cmake --version
+
       - name: Enable vcpkg binary caching
         uses: actions/github-script@v7
         with:
@@ -54,9 +59,7 @@ jobs:
 
       - name: Configure (vcpkg manifest + gtest)
         working-directory: cpp/tests
-        env:
-          CXX: g++-14
-        run: cmake --preset release
+        run: cmake --preset release -DCMAKE_CXX_COMPILER=g++-14
 
       - name: Build unit tests
         working-directory: cpp/tests
