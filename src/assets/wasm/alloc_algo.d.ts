@@ -87,7 +87,7 @@ export interface ResultType {doneAtAttempt: number; doneAtStep: number; tookMUS:
 
 export type ShuffleResponse =
   | { success: true; data: ResultType }
-  | { success: false; error: 'EmptyGrid' | 'MaxAttemptsReached' };
+  | { success: false; error: 'EmptyGrid' | 'MaxAttemptsReached' | 'Unsatisfiable' };
 
 export interface GridShuffler {
   delete(): void;

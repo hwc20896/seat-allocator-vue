@@ -1,0 +1,7 @@
+{
+  "name": "seat-allocator-algo-tests",
+  "version": "0.0.1",
+  "dependencies": [
+    "gtest"
+  ]
+}

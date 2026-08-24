@@ -3,7 +3,6 @@
 #include <vector>
 #include <string>
 #include <compare>
-#include <vector>
 #include "constraints.hpp"
 
 struct AnnealingConfig {
@@ -36,18 +35,24 @@ struct ShuffleConfig {
 
     constexpr ShuffleConfig() = default;
 
-    constexpr ShuffleConfig& setAllowFixedPoints(const bool allow_fixed_points) {
-        this->allow_fixed_points = allow_fixed_points;
+    constexpr ShuffleConfig(const ShuffleConfig&) = default;
+    constexpr ShuffleConfig(ShuffleConfig&&) = default;
+
+    constexpr ShuffleConfig& operator=(const ShuffleConfig&) = default;
+    constexpr ShuffleConfig& operator=(ShuffleConfig&&) = default;
+
+    constexpr ShuffleConfig& setAllowFixedPoints(const bool _allow_fixed_points) {
+        this->allow_fixed_points = _allow_fixed_points;
         return *this;
     }
 
-    constexpr ShuffleConfig& setAllowOriginalNeighbors(const bool allow_original_neighbors) {
-        this->allow_original_neighbors = allow_original_neighbors;
+    constexpr ShuffleConfig& setAllowOriginalNeighbors(const bool _allow_original_neighbors) {
+        this->allow_original_neighbors = _allow_original_neighbors;
         return *this;
     }
 
-    constexpr ShuffleConfig& setDiagonalsAreNeighbors(const bool diagonals_are_neighbors) {
-        this->diagonals_are_neighbors = diagonals_are_neighbors;
+    constexpr ShuffleConfig& setDiagonalsAreNeighbors(const bool _diagonals_are_neighbors) {
+        this->diagonals_are_neighbors = _diagonals_are_neighbors;
         return *this;
     }
 

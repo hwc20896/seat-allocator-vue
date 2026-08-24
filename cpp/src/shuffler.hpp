@@ -31,6 +31,7 @@ struct ResultType {
 
 enum class ShuffleError : int {
     EmptyGrid,
+    Unsatisfiable,
     MaxAttemptsReached
 };
 
@@ -109,6 +110,8 @@ class GridShuffler final {
 
         mutable std::mt19937 rng;
 
+        bool automaticAnnealing_ = true;
+
     private /* methods */:
         ArrayOf<NodeID> getNeighbors(int idx, bool diagonals) const;
 
@@ -161,6 +164,7 @@ void GridShuffler::setConfig(const ShuffleConfig& cfg) {
 
 void GridShuffler::setAnnealingConfig(const AnnealingConfig& cfg) {
     annealingConfig_ = cfg;
+    automaticAnnealing_ = false;
 }
 
 void GridShuffler::setPenaltyWeights(const PenaltyWeights& weights) {
@@ -193,15 +197,17 @@ std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
 
     const auto algoStart = chrn::high_resolution_clock::now();
 
-    const int dynamicMaxSteps = std::max(50'000, gridSize_ * 300);
+    if (automaticAnnealing_) {
+        const int dynamicMaxSteps = std::max(50'000, gridSize_ * 300);
 
-    const double T0 = -10.0 / std::log(0.5);
-    constexpr double Tend = 0.01;
-    const double alpha = std::pow(Tend / T0, 1.0 / dynamicMaxSteps);
+        const double T0 = -10.0 / std::log(0.5);
+        constexpr double Tend = 0.01;
+        const double alpha = std::pow(Tend / T0, 1.0 / dynamicMaxSteps);
 
-    annealingConfig_.maxSteps = dynamicMaxSteps;
-    annealingConfig_.initialTemperature = T0;
-    annealingConfig_.coolingRate = alpha;
+        annealingConfig_.maxSteps = dynamicMaxSteps;
+        annealingConfig_.initialTemperature = T0;
+        annealingConfig_.coolingRate = alpha;
+    }
 
     for (const auto attempt : std::views::iota(0, annealingConfig_.maxAttempts)) {
         auto state = std::views::iota(0, gridSize_) | std::ranges::to<ArrayOf<NodeID>>();
@@ -228,6 +234,11 @@ std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
         ) + getPairEnergyForElements(allElements_, posMap);
 
         auto temperature = annealingConfig_.initialTemperature;
+
+        if (nonFrozenIndices_.size() < 2 && totalEnergy > 0) {
+            return std::unexpected(ShuffleError::Unsatisfiable);
+        }
+
         std::uniform_int_distribution<uint64_t> dist{0ULL, nonFrozenIndices_.size() - 1};
         std::uniform_real_distribution probDist{0.0, 1.0};
 
@@ -252,8 +263,13 @@ std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
             affectedIndices.clear();
             affectedIndices.push_back(idx1);
             affectedIndices.push_back(idx2);
+#if __cpp_lib_containers_ranges >= 202202L
             affectedIndices.append_range(neighborsOfPos[idx1]);
             affectedIndices.append_range(neighborsOfPos[idx2]);
+#else
+            affectedIndices.insert(affectedIndices.cend(), neighborsOfPos[idx1].begin(), neighborsOfPos[idx1].end());
+            affectedIndices.insert(affectedIndices.cend(), neighborsOfPos[idx2].begin(), neighborsOfPos[idx2].end());
+#endif
 
             std::ranges::sort(affectedIndices);
             affectedIndices.erase(
@@ -271,10 +287,18 @@ std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
             involvedPairVals.clear();
             involvedPairVals.push_back(val1);
             involvedPairVals.push_back(val2);
+#if __cpp_lib_containers_ranges >= 202202L
             involvedPairVals.append_range(forbidShareRowAdj_[val1]);
             involvedPairVals.append_range(forbidShareColAdj_[val1]);
             involvedPairVals.append_range(forbidShareRowAdj_[val2]);
             involvedPairVals.append_range(forbidShareColAdj_[val2]);
+#else
+            involvedPairVals.insert(involvedPairVals.cend(), forbidShareRowAdj_[val1].begin(), forbidShareRowAdj_[val1].end());
+            involvedPairVals.insert(involvedPairVals.cend(), forbidShareColAdj_[val1].begin(), forbidShareColAdj_[val1].end());
+            involvedPairVals.insert(involvedPairVals.cend(), forbidShareRowAdj_[val2].begin(), forbidShareRowAdj_[val2].end());
+            involvedPairVals.insert(involvedPairVals.cend(), forbidShareColAdj_[val2].begin(), forbidShareColAdj_[val2].end());
+#endif
+
             std::ranges::sort(involvedPairVals);
             involvedPairVals.erase(
                 std::ranges::unique(involvedPairVals).begin(),
@@ -452,7 +476,7 @@ void GridShuffler::rebuildConstraints() {
         std::visit(overloaded{
             [&](const ForceRow& c) {
                 if (const auto it = stringToID_.find(c.first);
-                    it != stringToID_.end()
+                    it != stringToID_.end() && c.second >= 0 && c.second < gridRow_
                 ) {
                     forcedRow_[it->second] = c.second;
                 }
@@ -466,7 +490,7 @@ void GridShuffler::rebuildConstraints() {
             },
             [&](const ForceCol& c) {
                 if (const auto it = stringToID_.find(c.first);
-                    it != stringToID_.end()
+                    it != stringToID_.end() && c.second >= 0 && c.second < gridCol_
                 ) {
                     forcedCol_[it->second] = c.second;
                 }
@@ -481,6 +505,7 @@ void GridShuffler::rebuildConstraints() {
                 if (stringToID_.contains(c.first) && stringToID_.contains(c.second)) {
                     const int id1 = stringToID_[c.first];
                     const int id2 = stringToID_[c.second];
+                    if (id1 == id2) return;
                     forbidShareRowAdj_[id1].push_back(id2);
                     forbidShareRowAdj_[id2].push_back(id1);
                 }
@@ -489,6 +514,7 @@ void GridShuffler::rebuildConstraints() {
                 if (stringToID_.contains(c.first) && stringToID_.contains(c.second)) {
                     const int id1 = stringToID_[c.first];
                     const int id2 = stringToID_[c.second];
+                    if (id1 == id2) return;
                     forbidShareColAdj_[id1].push_back(id2);
                     forbidShareColAdj_[id2].push_back(id1);
                 }

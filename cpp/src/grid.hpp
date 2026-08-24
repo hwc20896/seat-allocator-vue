@@ -2,10 +2,9 @@
 
 #include <vector>
 #include <string>
-#include <string_view>
 #include <stdexcept>
-#include <iostream>
-#include <ranges>
+#include <ostream>
+#include <algorithm>
 
 class Grid final {
     public /* Statics */:
@@ -134,8 +133,15 @@ Grid Grid::fromCSVString(const std::string& csvString) {
                     );
                 }
 
+#ifdef KEEP_DEBUG_NOTE
                 std::println("row: {}", row);
+#endif
+
+#if __cpp_lib_containers_ranges >= 202202L
                 data.append_range(std::move(row));
+#else
+                data.insert(data.end(), std::make_move_iterator(row.begin()), std::make_move_iterator(row.end()));
+#endif
                 row.clear();
                 rows++;
                 i++;
@@ -158,7 +164,11 @@ Grid Grid::fromCSVString(const std::string& csvString) {
             );
         }
 
+#if __cpp_lib_containers_ranges >= 202202L
         data.append_range(std::move(row));
+#else
+        data.insert(data.end(), std::make_move_iterator(row.begin()), std::make_move_iterator(row.end()));
+#endif
         rows++;
     }
 
@@ -187,7 +197,7 @@ const std::string& Grid::operator[](const int row, const int col) const {
 }
 
 const std::string& Grid::operator[](const int index) const {
-    if (index >= this->size())
+    if (index < 0 || index >= this->size())
         throw std::out_of_range("Grid: Index Out of range");
     return data_[index];
 }
@@ -200,7 +210,7 @@ std::string& Grid::operator[](const int row, const int col) {
 }
 
 std::string& Grid::operator[](const int index) {
-    if (index >= this->size())
+    if (index < 0 || index >= this->size())
         throw std::out_of_range("Grid: Index Out of range");
     return data_[index];
 }

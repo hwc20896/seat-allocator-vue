@@ -43,5 +43,7 @@ src/assets/wasm/alloc_algo.js
 src/__test_datas__/*
 
 # C++
-cmake-build-*/
+*build-*/
 algo-build/
+vcpkg-installed/
+CMakeUserPresets.json
