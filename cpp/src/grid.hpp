@@ -137,7 +137,7 @@ Grid Grid::fromCSVString(const std::string& csvString) {
                 std::println("row: {}", row);
 #endif
 
-#if !(__cpp_lib_containers_ranges >= 202202L)
+#if __cpp_lib_containers_ranges >= 202202L
                 data.append_range(std::move(row));
 #else
                 data.insert(data.end(), std::make_move_iterator(row.begin()), std::make_move_iterator(row.end()));
