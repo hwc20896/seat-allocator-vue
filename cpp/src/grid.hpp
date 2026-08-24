@@ -136,7 +136,12 @@ Grid Grid::fromCSVString(const std::string& csvString) {
 #ifdef KEEP_DEBUG_NOTE
                 std::println("row: {}", row);
 #endif
+
+#if !(__cpp_lib_containers_ranges >= 202202L)
                 data.append_range(std::move(row));
+#else
+                data.insert(data.end(), std::make_move_iterator(row.begin()), std::make_move_iterator(row.end()));
+#endif
                 row.clear();
                 rows++;
                 i++;
@@ -159,7 +164,11 @@ Grid Grid::fromCSVString(const std::string& csvString) {
             );
         }
 
+#if __cpp_lib_containers_ranges >= 202202L
         data.append_range(std::move(row));
+#else
+        data.insert(data.end(), std::make_move_iterator(row.begin()), std::make_move_iterator(row.end()));
+#endif
         rows++;
     }
 

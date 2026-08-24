@@ -263,8 +263,13 @@ std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
             affectedIndices.clear();
             affectedIndices.push_back(idx1);
             affectedIndices.push_back(idx2);
+#if __cpp_lib_containers_ranges >= 202202L
             affectedIndices.append_range(neighborsOfPos[idx1]);
             affectedIndices.append_range(neighborsOfPos[idx2]);
+#else
+            affectedIndices.insert(affectedIndices.cend(), neighborsOfPos[idx1].begin(), neighborsOfPos[idx1].end());
+            affectedIndices.insert(affectedIndices.cend(), neighborsOfPos[idx2].begin(), neighborsOfPos[idx2].end());
+#endif
 
             std::ranges::sort(affectedIndices);
             affectedIndices.erase(
@@ -282,10 +287,18 @@ std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
             involvedPairVals.clear();
             involvedPairVals.push_back(val1);
             involvedPairVals.push_back(val2);
+#if __cpp_lib_containers_ranges >= 202202L
             involvedPairVals.append_range(forbidShareRowAdj_[val1]);
             involvedPairVals.append_range(forbidShareColAdj_[val1]);
             involvedPairVals.append_range(forbidShareRowAdj_[val2]);
             involvedPairVals.append_range(forbidShareColAdj_[val2]);
+#else
+            involvedPairVals.insert(involvedPairVals.cend(), forbidShareRowAdj_[val1].begin(), forbidShareRowAdj_[val1].end());
+            involvedPairVals.insert(involvedPairVals.cend(), forbidShareColAdj_[val1].begin(), forbidShareColAdj_[val1].end());
+            involvedPairVals.insert(involvedPairVals.cend(), forbidShareRowAdj_[val2].begin(), forbidShareRowAdj_[val2].end());
+            involvedPairVals.insert(involvedPairVals.cend(), forbidShareColAdj_[val2].begin(), forbidShareColAdj_[val2].end());
+#endif
+
             std::ranges::sort(involvedPairVals);
             involvedPairVals.erase(
                 std::ranges::unique(involvedPairVals).begin(),
