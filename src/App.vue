@@ -69,6 +69,7 @@ import { useColorConfig } from '@/composables/useColorConfig'
 import { useConstraintsConfig } from '@/composables/useConstraintsConfig'
 import { useFileIO } from '@/composables/useFileIO'
 import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts'
+import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
 
 import type { Grid, PointerOf } from '@/assets/wasm/alloc_algo'
 import { Position } from '@/utils/Position.ts'
@@ -83,6 +84,7 @@ const grid = useGridShuffle(wasm.wasmModule, wasm.wasmReady, wasm.shufflerInstan
 )
 const colorConfig = useColorConfig()
 const fileIO = useFileIO(wasm.wasmModule)
+const unsavedGuard = useUnsavedChangesGuard()
 
 const appVersion = __APP_VERSION__
 
@@ -99,7 +101,9 @@ const taggedCol = computed(() => taggedCell.value?.col ?? null)
 
 // Choose which grid to render
 const renderedGrid = computed<Grid | null>(() => {
-  if (!grid.isGridLoaded.value) return new wasm.wasmModule.value!.Grid()
+  const module = wasm.wasmModule.value
+  if (!module) return null
+  if (!grid.isGridLoaded.value) return new module.Grid()
   if (grid.showOriginal.value && grid.originalGrid.value) return grid.originalGrid.value
   return grid.currentGrid.value
 })
@@ -126,10 +130,10 @@ const handleCSVImport = async (file: File) => {
     const parsed = wasm.wasmModule.value!.Grid.fromCSV(text)
     if (parsed.empty()) return
     const success = grid.loadNewGrid(parsed)
-    if (success) {
-      taggedCell.value = null
-      statusText.value = `已成功導入檔案：${file.name}`
-    }
+    if (!success) return
+    taggedCell.value = null
+    statusText.value = `已成功導入檔案：${file.name}`
+    unsavedGuard.markDirty()
   } catch (e) {
     alert('檔案讀取失敗。')
     console.error(e)
@@ -142,10 +146,10 @@ const handleXLSXImport = async (file: File) => {
     const parsed = await fileIO.parseXLSX(file)
     if (parsed.empty()) return
     const success = grid.loadNewGrid(parsed)
-    if (success) {
-      taggedCell.value = null
-      statusText.value = `已成功導入檔案：${file.name}`
-    }
+    if (!success) return
+    taggedCell.value = null
+    statusText.value = `已成功導入檔案：${file.name}`
+    unsavedGuard.markDirty()
   } catch (e) {
     alert('檔案讀取失敗。')
     console.error(e)
@@ -200,6 +204,7 @@ const handleGridExport = async () => {
     }
 
     await writable.close()
+    unsavedGuard.markClean()
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'AbortError') {
       statusText.value = '已取消導出。'
@@ -217,9 +222,9 @@ const handleColorImport = async (file: File) => {
   try {
     const text = await fileIO.readTextFile(file)
     const success = colorConfig.loadColors(text)
-    if (success) {
-      statusText.value = `顏色配置載入成功。`
-    }
+    if (!success) return
+    statusText.value = `顏色配置載入成功。`
+    unsavedGuard.markDirty()
   } catch {
     alert('JSON 顏色配置解析失敗。')
   }
@@ -269,9 +274,9 @@ const handleResetConstraints = () => {
 const handleShuffle = async () => {
   taggedCell.value = null
   const success = await grid.beginShuffleAnimation()
-  if (success) {
-    statusText.value = `洗牌完成，已生成第 ${grid.currentIndex.value} 次分配結果。`
-  }
+  if (!success) return
+  statusText.value = `洗牌完成，已生成第 ${grid.currentIndex.value} 次分配結果。`
+  unsavedGuard.markDirty()
 }
 
 // ==========================================
@@ -305,6 +310,7 @@ const handleCellClick = (position: Position) => {
     grid.swapCells(tPos, position)
     statusText.value = `已手動交換單元格：${tPos} ⟺ ${position}`
     taggedCell.value = null
+    unsavedGuard.markDirty()
   }
 }
 
