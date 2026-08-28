@@ -5,7 +5,8 @@
 #include <cstdint>
 #include <limits>
 #include <stdexcept>
-#include <format>
+#include <bit>
+#include <numeric>
 
 class DynamicBitset final {
     public:
@@ -26,6 +27,11 @@ class DynamicBitset final {
 
         [[nodiscard]]
         SizeType size() const noexcept;
+
+        void fill(bool value) noexcept;
+
+        SizeType trueCount() const noexcept;
+        SizeType falseCount() const noexcept;
 
     private:
         SizeType bitCount_;
@@ -80,4 +86,21 @@ void DynamicBitset::reset() {
 
 DynamicBitset::SizeType DynamicBitset::size() const noexcept {
     return bitCount_;
+}
+
+void DynamicBitset::fill(const bool value) noexcept {
+    std::ranges::fill(data_, value ? ~static_cast<SizeType>(0) : static_cast<SizeType>(0));
+    if (const SizeType usedBits = bitCount_ % BITS_PER_WORD) {
+        data_.back() &= (static_cast<SizeType>(1) << usedBits) - 1;
+    }
+}
+
+DynamicBitset::SizeType DynamicBitset::trueCount() const noexcept {
+    return std::transform_reduce(
+        data_.begin(), data_.end(), 0ULL, std::plus<SizeType>(), &std::popcount<SizeType>
+    );
+}
+
+DynamicBitset::SizeType DynamicBitset::falseCount() const noexcept {
+    return bitCount_ - trueCount();
 }
