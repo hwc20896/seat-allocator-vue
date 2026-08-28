@@ -20,9 +20,6 @@
 #include "dynamic-bitset.hpp"
 #include "utils.hpp"
 
-template <class... Ts>
-struct overloaded : Ts... { using Ts::operator()...; };
-
 struct ResultType {
     int doneAtAttempt;
     int doneAtStep;
