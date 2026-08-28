@@ -107,6 +107,19 @@ export interface GridShufflerConstructor{
   new (): GridShuffler;
 }
 
+export interface FeasibilityReport {
+  status: int;
+  layer: string;
+  reason: string;
+}
+
+export function checkFeasibility(
+  grid: Grid,
+  cfg: ShuffleConfig,
+  checkForbidShare: boolean,
+  coloringNodeBudget: number,
+): FeasibilityReport;
+
 export interface ModuleExports {
   ShuffleConfig: ShuffleConfigConstructor;
   GridShuffler: GridShufflerConstructor;

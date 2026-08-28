@@ -5,7 +5,7 @@
 
 #include "src/constraints.hpp"
 #include "src/shuffler.hpp"
-#include "src/utils.hpp"
+#include "src/feasibility.hpp"
 #include "src/grid.hpp"
 #include "src/configs.hpp"
 
@@ -145,4 +145,17 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         }))
         .function("validateResult", &GridShuffler::validateResult)
         .function("clearShuffledGrids", &GridShuffler::clearShuffledGrids);
+
+    function("checkFeasibility", optional_override([](
+        const Grid& grid, const ShuffleConfig& cfg,
+        const bool checkForbidShare, const int coloringNodeBudget
+    ) {
+        const auto& [status, layer, reason] =
+            checkFeasibility(grid, cfg, {.checkForbidShare = checkForbidShare, .coloringNodeBudget = coloringNodeBudget});
+        val js_obj = val::object();
+        js_obj.set("status", static_cast<int>(status));  // 0/1/2
+        js_obj.set("layer", layer);
+        js_obj.set("reason", reason);
+        return js_obj;
+    }));
 }
