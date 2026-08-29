@@ -310,6 +310,7 @@ TEST(DynamicBitset, MatchesStdBitsetSemantics) {
 //   -------------------------------------------------------
 
 constexpr auto cfg = ShuffleConfig{}.setAllowOriginalNeighbors(true);
+constexpr auto strictCfg = ShuffleConfig{}.setAllowFixedPoints(false).setAllowOriginalNeighbors(false);
 
 TEST(GridShuffler, SetGridRejectsEmpty) {
     GridShuffler s(42);
@@ -326,6 +327,7 @@ TEST(GridShuffler, EmptyGridReturnsError) {
 
 TEST(GridShuffler, SingleMovableCellIsUnsatisfiable) {
     GridShuffler s(42);
+    s.setConfig(strictCfg);
     s.setGrid(Grid::fromCSVString("A,\n"));
     const auto result = s.shuffle();
     ASSERT_FALSE(result.has_value());
@@ -384,9 +386,9 @@ TEST(GridShuffler, ResultIsPermutation) {
     EXPECT_TRUE(s.validateResult());
 }
 
-TEST(GridShuffler, NoFixedPointsByDefault) {
+TEST(GridShuffler, NoFixedPointsWhenDisallowed) {
     GridShuffler s(42);
-    s.setConfig(cfg);
+    s.setConfig(ShuffleConfig{cfg}.setAllowFixedPoints(false));
     const auto src = Grid::fromCSVString("A,B\nC,D\n");
     s.setGrid(src);
     ASSERT_TRUE(s.shuffle().has_value());
@@ -606,8 +608,9 @@ TEST(GridShuffler, ImpossibleConstraintsReturnMaxAttempts) {
     EXPECT_EQ(result.error(), ShuffleError::MaxAttemptsReached);
 }
 
-TEST(GridShuffler, TinyGridWithDefaultConfigIsUnsatisfiable) {
+TEST(GridShuffler, TinyGridWithStrictConfigIsUnsatisfiable) {
     GridShuffler s(42);
+    s.setConfig(strictCfg);
     s.setGrid(Grid::fromCSVString("A,B\nC,D\n"));
     s.setAnnealingConfig(AnnealingConfig{.maxAttempts = 1});
     const auto result = s.shuffle();
@@ -649,7 +652,7 @@ TEST(GridShuffler, ProductScaleDefaultConfigSmoke) {
 
 TEST(GridShuffler, ConstraintOverwriteClearsOldConstraints) {
     GridShuffler s(42);
-    s.setConfig(ShuffleConfig{}.forceRow("A", 0).forceRow("B", 0));   //  Conflict → No Solution
+    s.setConfig(ShuffleConfig{strictCfg}.forceRow("A", 0).forceRow("B", 0));   //  Conflict → No Solution
     s.setGrid(Grid::fromCSVString("A,B\nC,D\n"));
     s.setAnnealingConfig(AnnealingConfig{.maxAttempts = 1});
     EXPECT_FALSE(s.shuffle().has_value());
@@ -672,6 +675,7 @@ TEST(GridShuffler, SetConfigAfterSetGridApplies) {
 
 TEST(GridShuffler, FailedShuffleKeepsOriginalGrid) {
     GridShuffler s(42);
+    s.setConfig(strictCfg);
     s.setGrid(Grid::fromCSVString("A,B\nC,D\n"));
     s.setAnnealingConfig(AnnealingConfig{.maxAttempts = 1});
     ASSERT_FALSE(s.shuffle().has_value());
@@ -688,6 +692,13 @@ TEST(GridShuffler, ResultMetaFieldsAreSane) {
     EXPECT_GE(result->doneAtAttempt, 0);
     EXPECT_GE(result->doneAtStep, 0);
     EXPECT_GE(result->tookMUS, 0);
+}
+
+TEST(GridShuffler, DefaultConfigAllowsFixedPointsAndOriginalNeighbors) {
+    GridShuffler s(42);
+    s.setGrid(Grid::fromCSVString("A,B\nC,D\n"));
+    ASSERT_TRUE(s.shuffle().has_value());
+    EXPECT_TRUE(s.validateResult());
 }
 
 //   -------------------------------------------------------
