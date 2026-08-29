@@ -147,7 +147,13 @@ describe('useConstraintsConfig', () => {
     loadConstraints('{"constraints": []}')
     resetConstraints()
     expect(hasCustomConfig.value).toBe(false)
-    expect(currentConfigJson.value).toBe('{}')
+    expect(JSON.parse(currentConfigJson.value)).toEqual({
+      allowFixedPoints: true,
+      allowOriginalNeighbors: true,
+      diagonalsAreNeighbors: false,
+      customForbiddenPairs: [],
+      constraints: [],
+    })
     expect(parsedConfig.value).toBeNull()
   })
 
@@ -193,5 +199,36 @@ describe('useConstraintsConfig', () => {
     )
     buildWasmConfig({ ShuffleConfig: FakeShuffleConfig } as never)
     expect(warnSpy).not.toHaveBeenCalled()
+  })
+
+  it('buildWasmConfigFromJson 直接以 JSON 字串建構且不依賴 loadConstraints', () => {
+    const forceRowSpy = vi.fn<(name: string, rowIdx: number) => void>()
+    class FakeShuffleConfig {
+      forceRow = forceRowSpy
+    }
+    const { buildWasmConfigFromJson, hasCustomConfig } = useConstraintsConfig()
+    const cfg = buildWasmConfigFromJson(
+      { ShuffleConfig: FakeShuffleConfig } as never,
+      JSON.stringify({ constraints: [{ type: 'FORCEROW', name: '王小明', rowIdx: 2 }] }),
+    )
+    expect(cfg).toBeInstanceOf(FakeShuffleConfig)
+    expect(forceRowSpy).toHaveBeenCalledWith('王小明', 2)
+    expect(hasCustomConfig.value).toBe(false)
+  })
+
+  it('buildWasmConfigFromJson 在 JSON 格式錯誤時 warn 並回傳空 cfg', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    class FakeShuffleConfig {
+      forceRow = vi.fn<(name: string, rowIdx: number) => void>()
+    }
+    const { buildWasmConfigFromJson } = useConstraintsConfig()
+    const cfg = buildWasmConfigFromJson({ ShuffleConfig: FakeShuffleConfig } as never, '{bad json')
+    expect(cfg).toBeInstanceOf(FakeShuffleConfig)
+    expect(warnSpy).toHaveBeenCalledWith('Failed to parse constraints JSON', expect.any(Error))
+  })
+
+  it('buildWasmConfigFromJson 在 wasmModule 為 null 時回傳 null', () => {
+    const { buildWasmConfigFromJson } = useConstraintsConfig()
+    expect(buildWasmConfigFromJson(null, '{}')).toBeNull()
   })
 })

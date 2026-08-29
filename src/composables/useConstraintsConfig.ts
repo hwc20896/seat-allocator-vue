@@ -3,9 +3,18 @@ import type { ModuleExports, PointerOf } from '@/assets/wasm/alloc_algo'
 import type { ImportedConstraint } from '@/utils/JSONTypes.ts'
 import { isBoolean } from 'lodash-es'
 
+/** 預設約束：與 C++ ShuffleConfig 默認值一致（允許原位、允許原本鄰座） */
+const DEFAULT_CONFIG_JSON = JSON.stringify({
+  allowFixedPoints: true,
+  allowOriginalNeighbors: true,
+  diagonalsAreNeighbors: false,
+  customForbiddenPairs: [],
+  constraints: [],
+})
+
 export function useConstraintsConfig() {
   const hasCustomConfig = ref(false)
-  const currentConfigJson = ref<string>('{}')
+  const currentConfigJson = ref<string>(DEFAULT_CONFIG_JSON)
   const parsedConfig = ref<PointerOf<ImportedConstraint>>(null)
 
   const validateBasicStructure = (obj: PointerOf<ImportedConstraint>): boolean => {
@@ -27,24 +36,32 @@ export function useConstraintsConfig() {
       hasCustomConfig.value = true
       console.debug('Constraints loaded:', obj)
       return true
-    } catch (e) {
+    } catch {
       alert('JSON 算法約束檔案格式錯誤。')
       return false
     }
   }
 
-  // Build a WASM ShuffleConfig instance from the parsed JSON.
+  // Build a WASM ShuffleConfig instance from a constraints JSON string.
   // Returns null when wasmModule is not available.
-  const buildWasmConfig = (wasmModule: PointerOf<ModuleExports>) => {
+  const buildWasmConfigFromJson = (wasmModule: PointerOf<ModuleExports>, json: string) => {
     if (!wasmModule) return null
 
     const cfg = new wasmModule.ShuffleConfig()
-    const o = parsedConfig.value
+
+    let o: PointerOf<ImportedConstraint>
+    try {
+      o = JSON.parse(json) as ImportedConstraint
+    } catch (e) {
+      console.warn('Failed to parse constraints JSON', e)
+      return cfg
+    }
     if (!o) return cfg
 
     try {
       if (isBoolean(o.allowFixedPoints)) cfg.setAllowFixedPoints(o.allowFixedPoints)
-      if (isBoolean(o.allowOriginalNeighbors)) cfg.setAllowOriginalNeighbors(o.allowOriginalNeighbors)
+      if (isBoolean(o.allowOriginalNeighbors))
+        cfg.setAllowOriginalNeighbors(o.allowOriginalNeighbors)
       if (isBoolean(o.diagonalsAreNeighbors)) cfg.setDiagonalsAreNeighbors(o.diagonalsAreNeighbors)
 
       if (Array.isArray(o.customForbiddenPairs)) {
@@ -59,7 +76,6 @@ export function useConstraintsConfig() {
         }
       }
 
-      console.log(o.constraints)
       if (Array.isArray(o.constraints)) {
         for (const c of o.constraints) {
           if (!c) continue
@@ -105,8 +121,12 @@ export function useConstraintsConfig() {
     return cfg
   }
 
+  // Build a WASM ShuffleConfig instance from the currently applied JSON.
+  const buildWasmConfig = (wasmModule: PointerOf<ModuleExports>) =>
+    buildWasmConfigFromJson(wasmModule, currentConfigJson.value)
+
   const resetConstraints = () => {
-    currentConfigJson.value = '{}'
+    currentConfigJson.value = DEFAULT_CONFIG_JSON
     parsedConfig.value = null
     hasCustomConfig.value = false
   }
@@ -117,6 +137,7 @@ export function useConstraintsConfig() {
     parsedConfig,
     loadConstraints,
     resetConstraints,
+    buildWasmConfigFromJson,
     buildWasmConfig,
   }
 }
