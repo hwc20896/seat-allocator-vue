@@ -25,9 +25,9 @@ struct PenaltyWeights {
 };
 
 struct ShuffleConfig {
-    bool allow_fixed_points = false;
-    bool allow_original_neighbors = false;
-    bool diagonals_are_neighbors = false;
+    bool allowFixedPoints = true;
+    bool allowOriginalNeighbors = true;
+    bool diagonalsAreNeighbors = false;
     std::vector<std::pair<std::string, std::string>> custom_forbidden_pairs;
     std::vector<Constraint> constraints;
 
@@ -42,17 +42,17 @@ struct ShuffleConfig {
     constexpr ShuffleConfig& operator=(ShuffleConfig&&) = default;
 
     constexpr ShuffleConfig& setAllowFixedPoints(const bool _allow_fixed_points) {
-        this->allow_fixed_points = _allow_fixed_points;
+        this->allowFixedPoints = _allow_fixed_points;
         return *this;
     }
 
     constexpr ShuffleConfig& setAllowOriginalNeighbors(const bool _allow_original_neighbors) {
-        this->allow_original_neighbors = _allow_original_neighbors;
+        this->allowOriginalNeighbors = _allow_original_neighbors;
         return *this;
     }
 
     constexpr ShuffleConfig& setDiagonalsAreNeighbors(const bool _diagonals_are_neighbors) {
-        this->diagonals_are_neighbors = _diagonals_are_neighbors;
+        this->diagonalsAreNeighbors = _diagonals_are_neighbors;
         return *this;
     }
 

@@ -30,14 +30,14 @@
 //
 //   L1 可行域（domain）── 每個元素的可放位置集合是否為空
 //       例：A 被 forceRow(0) 又 forbidRow(0)，A 就無處可去；
-//           4 人都被 forceRow 到同一列，但每列只有 3 格，塞不下。
+//           4 人都被 forceRow 到同一行，但每行只有 3 格，塞不下。
 //
 //   L2 完美匹配 ── 元素 ↔ 位置 的二分圖能否全部配對（匈牙利演算法）
 //       例：A、B 都只能進同一個格子，位置只有 1 個，必然失敗。
 //
-//   L3 著色 ── ForbidShare 兩兩互斥，等同「同列/同行的圖著色」
-//       例：A、B、C 三人兩兩 forbidShareRow，但只有 2 列，
-//           三人注定要有人同列 → 無解。
+//   L3 著色 ── ForbidShare 兩兩互斥，等同「同行/同列的圖著色」
+//       例：A、B、C 三人兩兩 forbidShareRow，但只有 2 行，
+//           三人注定要有人同行 → 無解。
 //
 // 已知限制：
 //   * L1 + L2 對「沒有 ForbidShare 約束」的情形是精確的（等價於
@@ -71,10 +71,10 @@ namespace feasibility_detail {
 struct ElementProfile {
     std::string name;
     int count = 0;              // 在 grid 中出現次數（同名格子數）
-    int forcedRow = -1;         // 鎖定列（-1 = 未鎖定）
-    int forcedCol = -1;         // 鎖定行（-1 = 未鎖定）
-    DynamicBitset rows;         // 可放列遮罩（1 = 可放）
-    DynamicBitset cols;         // 可放行遮罩（1 = 可放）
+    int forcedRow = -1;         // 鎖定行（-1 = 未鎖定）
+    int forcedCol = -1;         // 鎖定列（-1 = 未鎖定）
+    DynamicBitset rows;         // 可放行遮罩（1 = 可放）
+    DynamicBitset cols;         // 可放列遮罩（1 = 可放）
     std::vector<int> positions; // 展開後的可放位置（已剔除空格位置）
 
     explicit ElementProfile(std::string name_, const uint64_t rowCount, const uint64_t colCount)
@@ -103,8 +103,7 @@ std::optional<std::string> layer1(
     std::unordered_map<std::string, int> nameToIdx;
     for (const auto& cell : grid) {
         if (cell.empty()) continue;
-        const auto inserted = nameToIdx.try_emplace(cell, static_cast<int>(profiles.size())).second;
-        if (inserted) {
+        if (nameToIdx.try_emplace(cell, static_cast<int>(profiles.size())).second) {
             profiles.emplace_back(cell, rows, cols);
         }
         ++profiles[nameToIdx[cell]].count;
@@ -116,7 +115,7 @@ std::optional<std::string> layer1(
             [&](const ForceRow& c2) {
                 const auto it = nameToIdx.find(c2.first);
                 if (it != nameToIdx.end() && c2.second >= 0 && c2.second < rows) {
-                    // force 到列 r：其他列全部關閉；目標列若被 forbid 過則保持關閉
+                    // force 到行 r：其他行全部關閉；目標行若被 forbid 過則保持關閉
                     auto& p = profiles[it->second];
                     p.forcedRow = c2.second;
                     for (int r = 0; r < rows; ++r) {
@@ -174,7 +173,7 @@ std::optional<std::string> layer1(
         }
     }
 
-    // 容量檢查：同一列/行被 force 的元素總數（含重複）不得超過容量
+    // 容量檢查：同一行/列被 force 的元素總數（含重複）不得超過容量
     std::vector<int> forcedPerRow(rows, 0), forcedPerCol(cols, 0);
     for (const auto& p : profiles) {
         if (p.forcedRow != -1) forcedPerRow[p.forcedRow] += p.count;
@@ -182,14 +181,14 @@ std::optional<std::string> layer1(
     }
     for (int r = 0; r < rows; ++r) {
         if (forcedPerRow[r] > cols) {
-            return "第 " + std::to_string(r) + " 列被鎖定 " +
+            return "第 " + std::to_string(r + 1) + " 行被鎖定 " +
                    std::to_string(forcedPerRow[r]) + " 個元素，超過容量 " +
                    std::to_string(cols);
         }
     }
     for (int c = 0; c < cols; ++c) {
         if (forcedPerCol[c] > rows) {
-            return "第 " + std::to_string(c) + " 行被鎖定 " +
+            return "第 " + std::to_string(c + 1) + " 列被鎖定 " +
                    std::to_string(forcedPerCol[c]) + " 個元素，超過容量 " +
                    std::to_string(rows);
         }
@@ -203,17 +202,14 @@ std::optional<std::string> layer1(
             if (ia == nameToIdx.end() || ib == nameToIdx.end()) continue;  // 未知名字忽略（與 rebuildConstraints 一致）
             const ElementProfile& pa = profiles[ia->second];
             const ElementProfile& pb = profiles[ib->second];
-            // 交集為空 → 永不同列 → 安全；雙方都是單例（且交集非空）→ 必然同列 → 衝突
+            // 交集為空 → 永不同行 → 安全；雙方都是單例（且交集非空）→ 必然同行 → 衝突
             if (std::invoke(domain, pa).trueCount() != 1 || std::invoke(domain, pb).trueCount() != 1) continue;
-            const auto& da = std::invoke(domain, pa);
-            const auto& db = std::invoke(domain, pb);
-            bool same = false;
-            for (int i = 0; i < static_cast<int>(da.size()); ++i) {
-                if (da.test(i) && db.test(i)) { same = true; break; }
-            }
-            if (same) {
+            const DynamicBitset& da = std::invoke(domain, pa);
+            const DynamicBitset& db = std::invoke(domain, pb);
+
+            if ((da & db).any()) {
                 return "元素 '" + a + "' 與 '" + b +
-                       "' 都被鎖定在同一個位置範圍，卻被 forbidShare 禁止共列/共行";
+                       "' 都被鎖定在同一個位置範圍，卻被 forbidShare 禁止共行/共列";
             }
         }
         return std::nullopt;
@@ -275,7 +271,7 @@ ColoringOutcome solveColoring(
     const int n,                            // 節點數
     const std::vector<int>& forcedColor,    // 鎖定顏色（-1 = 未鎖定）
     const int colorCount,                   // 顏色數（列數或行數）
-    const int colorCapacity,                // 每色容量（每列/行格數）
+    const int colorCapacity,                // 每色容量（每行/列格數）
     const int budget                        // 回溯節點預算
 ) {
     std::vector color(n, -1);
@@ -376,7 +372,7 @@ std::optional<std::string> layer3(
         }, c);
     }
 
-    // 對「列方向」與「行方向」各做一次著色
+    // 對「行方向」與「列方向」各做一次著色
     budgetExceeded = false;
     const auto run = [&](const std::vector<StringPair>& edges, const int colorCount, const int colorCapacity,
                          const auto& forcedColorOf) -> std::optional<std::string> {
@@ -419,7 +415,7 @@ std::optional<std::string> layer3(
         }
         if (!outcomeFeasible) {
             return "存在 forbidShare 互斥群，無法在 " + std::to_string(colorCount) +
-                   " 個列/行內錯開";
+                   " 個行/列內錯開";
         }
         return std::nullopt;
     };
@@ -437,24 +433,19 @@ FeasibilityReport checkFeasibility(
     const ShuffleConfig& cfg,
     const FeasibilityOptions& opts = {}
 ) {
-    FeasibilityReport report;
-
     if (grid.empty()) {
-        report = {.status = FeasibilityStatus::Unsatisfiable, .layer = "domain", .reason = "grid 為空，無從安排"};
-        return report;
+        return {.status = FeasibilityStatus::Unsatisfiable, .layer = "domain", .reason = "grid 為空，無從安排"};
     }
 
     // L1：可行域 / 容量 / 必然衝突
     std::vector<feasibility_detail::ElementProfile> profiles;
     if (const auto fail = feasibility_detail::layer1(grid, cfg, profiles)) {
-        report = {.status = FeasibilityStatus::Unsatisfiable, .layer = "domain", .reason = *fail};
-        return report;
+        return {.status = FeasibilityStatus::Unsatisfiable, .layer = "domain", .reason = *fail};
     }
 
     // L2：完美匹配
     if (const auto fail = feasibility_detail::layer2(grid, profiles)) {
-        report = {.status = FeasibilityStatus::Unsatisfiable, .layer = "matching", .reason = *fail};
-        return report;
+        return {.status = FeasibilityStatus::Unsatisfiable, .layer = "matching", .reason = *fail};
     }
 
     // L3：ForbidShare 著色
@@ -462,14 +453,11 @@ FeasibilityReport checkFeasibility(
         bool budgetExceeded = false;
         if (const auto fail = feasibility_detail::layer3(grid, cfg, profiles, opts, budgetExceeded)) {
             if (budgetExceeded) {
-                report = {.status = FeasibilityStatus::Unknown, .layer = "coloring", .reason = "著色檢查超出預算，無法判定（可調高 coloringNodeBudget）"};
-            } else {
-                report = {.status = FeasibilityStatus::Unsatisfiable, .layer = "coloring", .reason = *fail};
+                return {.status = FeasibilityStatus::Unknown, .layer = "coloring", .reason = "著色檢查超出預算，無法判定（可調高 coloringNodeBudget）"};
             }
-            return report;
+            return {.status = FeasibilityStatus::Unsatisfiable, .layer = "coloring", .reason = *fail};
         }
     }
 
-    report = {.status = FeasibilityStatus::Feasible, .layer = "ok", .reason = "所有分層檢查皆通過"};
-    return report;
+    return {.status = FeasibilityStatus::Feasible, .layer = "ok", .reason = "所有分層檢查皆通過"};
 }
