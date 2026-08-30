@@ -5,7 +5,7 @@
 
 #include "src/constraints.hpp"
 #include "src/shuffler.hpp"
-#include "src/utils.hpp"
+#include "src/feasibility.hpp"
 #include "src/grid.hpp"
 #include "src/configs.hpp"
 
@@ -45,10 +45,10 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
     //  struct ShuffleConfig
     class_<ShuffleConfig>("ShuffleConfig")
         .constructor<>()
-        .property("allow_fixed_points", &ShuffleConfig::allow_fixed_points)
-        .property("allow_original_neighbors", &ShuffleConfig::allow_original_neighbors)
-        .property("diagonals_are_neighbors", &ShuffleConfig::diagonals_are_neighbors)
-        .property("custom_forbidden_pairs", &ShuffleConfig::custom_forbidden_pairs)
+        .property("allowFixedPoints", &ShuffleConfig::allowFixedPoints)
+        .property("allowOriginalNeighbors", &ShuffleConfig::allowOriginalNeighbors)
+        .property("diagonalsAreNeighbors", &ShuffleConfig::diagonalsAreNeighbors)
+        .property("customForbiddenPairs", &ShuffleConfig::custom_forbidden_pairs)
         .property("constraints", &ShuffleConfig::constraints)
         .function("setAllowFixedPoints", &ShuffleConfig::setAllowFixedPoints, allow_raw_pointers())
         .function("setAllowOriginalNeighbors", &ShuffleConfig::setAllowOriginalNeighbors, allow_raw_pointers())
@@ -145,4 +145,17 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         }))
         .function("validateResult", &GridShuffler::validateResult)
         .function("clearShuffledGrids", &GridShuffler::clearShuffledGrids);
+
+    function("checkFeasibility", optional_override([](
+        const Grid& grid, const ShuffleConfig& cfg,
+        const bool checkForbidShare, const int coloringNodeBudget
+    ) {
+        const auto& [status, layer, reason] =
+            checkFeasibility(grid, cfg, {.checkForbidShare = checkForbidShare, .coloringNodeBudget = coloringNodeBudget});
+        val js_obj = val::object();
+        js_obj.set("status", static_cast<int>(status));  // 0/1/2
+        js_obj.set("layer", layer);
+        js_obj.set("reason", reason);
+        return js_obj;
+    }));
 }

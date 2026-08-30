@@ -74,11 +74,11 @@ npm run dev
 
 ## 演算法約束
 
-「算法約束 (Constraints) → 導入約束配置」可載入 JSON 約束，控制洗牌的行為。範例：
+「算法約束 (Constraints) → 約束管理」可開啟圖形化編輯器（或按 `Ctrl + Shift + M`），不需要手寫 JSON；也可以沿用「導入約束配置」載入 JSON 約束，控制洗牌的行為。編輯器產生的 JSON 範例：
 
 ```json
 {
-  "allowFixedPoints": false,
+  "allowFixedPoints": true,
   "allowOriginalNeighbors": true,
   "diagonalsAreNeighbors": false,
   "customForbiddenPairs": [["張三", "李四"]],
@@ -91,8 +91,8 @@ npm run dev
 
 | 欄位 | 說明 |
 | --- | --- |
-| `allowFixedPoints` | 是否允許座位留在原位置（預設 `false`） |
-| `allowOriginalNeighbors` | 是否允許與原本的鄰座相鄰（預設 `false`） |
+| `allowFixedPoints` | 是否允許座位留在原位置（預設 `true`） |
+| `allowOriginalNeighbors` | 是否允許與原本的鄰座相鄰（預設 `true`） |
 | `diagonalsAreNeighbors` | 斜對角是否視為相鄰（預設 `false`） |
 | `customForbiddenPairs` | 禁止相鄰的兩人名單（`[["A", "B"], ...]`） |
 | `constraints` | 更細緻的位置約束（見下表） |
@@ -120,6 +120,7 @@ npm run dev
 | `Ctrl + Alt + C` | 重設顏色配置 |
 | `Ctrl + Shift + K` | 導入演算法約束 |
 | `Ctrl + Alt + K` | 重設演算法約束 |
+| `Ctrl + Shift + M` | 開啟約束管理 |
 | `Enter` | 洗牌 |
 
 ## 技術架構（簡介）

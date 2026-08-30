@@ -44,6 +44,10 @@
 
     <!-- Algorithmic Constraints -->
     <DropDownMenu label="算法約束 (Constraints)">
+      <button class="dropdown-item" @click="$emit('open-constraints-editor')">
+        約束管理
+        <span class="key-shortcut-indicator">Ctrl + Shift + M</span>
+      </button>
       <label class="dropdown-item file-label">
         導入約束配置
         <span class="key-shortcut-indicator">Ctrl + Shift + K</span>
@@ -86,6 +90,7 @@ const emit = defineEmits<{
   'clear-colors': []
   'constraints-import': [file: File]
   'reset-constraints': []
+  'open-constraints-editor': []
 }>()
 
 const gridInputRef = useTemplateRef<HTMLInputElement>('gridInputRef')
@@ -147,6 +152,11 @@ useKeyboardShortcut('ctrl+alt+k', () => {
   console.debug('ctrl+alt+k triggered')
   if (!props.hasCustomConfig) return
   emit('reset-constraints')
+})
+
+useKeyboardShortcut('ctrl+shift+m', () => {
+  console.debug('ctrl+shift+m triggered')
+  emit('open-constraints-editor')
 })
 </script>
 

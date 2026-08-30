@@ -30,6 +30,15 @@ describe('SeatGrid', () => {
     expect(wrapper.findAllComponents(GridCell)).toHaveLength(4)
   })
 
+  it('顯示 1-based 行/列索引與黑板標記', () => {
+    const wrapper = mountSeatGrid(makeMiniGrid())
+    const rowIndices = wrapper.findAll('.row-index').map((el) => el.text())
+    const colIndices = wrapper.findAll('.col-index').map((el) => el.text())
+    expect(rowIndices).toEqual(['1', '2'])
+    expect(colIndices).toEqual(['1', '2'])
+    expect(wrapper.find('.blackboard-bar').text()).toContain('黑板')
+  })
+
   it('點擊 cell 時 emit cell-click 帶 Position', async () => {
     const wrapper = mountSeatGrid(makeMiniGrid())
     await wrapper.findAllComponents(GridCell)[0]!.trigger('click')
@@ -39,9 +48,11 @@ describe('SeatGrid', () => {
     expect(payload.col).toBe(0)
   })
 
-  it('grid 為 null 時不渲染 cell', () => {
+  it('grid 為 null 時不渲染 cell、索引與黑板標記', () => {
     const wrapper = mountSeatGrid(null)
     expect(wrapper.findAllComponents(GridCell)).toHaveLength(0)
+    expect(wrapper.find('.blackboard-bar').exists()).toBe(false)
+    expect(wrapper.find('.row-index').exists()).toBe(false)
   })
 
   it('傳遞 tagged / swapped / currentlyOriginal props 給 GridCell', async () => {

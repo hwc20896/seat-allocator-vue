@@ -1,11 +1,11 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { shallowRef } from 'vue'
-import * as XLSX from 'xlsx'
+import * as XLSX from '@e965/xlsx'
 import { useFileIO } from './useFileIO'
 import { Grid } from '@/assets/wasm/alloc_algo'
 
-vi.mock('xlsx', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('xlsx')>()
+vi.mock('@e965/xlsx', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@e965/xlsx')>()
   return {
     ...actual,
     read: vi.fn(actual.read),

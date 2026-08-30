@@ -20,9 +20,6 @@
 #include "dynamic-bitset.hpp"
 #include "utils.hpp"
 
-template <class... Ts>
-struct overloaded : Ts... { using Ts::operator()...; };
-
 struct ResultType {
     int doneAtAttempt;
     int doneAtStep;
@@ -423,7 +420,7 @@ void GridShuffler::rebuildConstraints() {
 
     neighborsOfPos.resize(gridSize_);
     for (int i = 0; i < gridSize_; ++i) {
-        neighborsOfPos[i] = getNeighbors(i, config_.diagonals_are_neighbors);
+        neighborsOfPos[i] = getNeighbors(i, config_.diagonalsAreNeighbors);
     }
 
     originalNeighborsMatrix_ = DynamicBitset(static_cast<uint64_t>(gridSize_) * gridSize_);
@@ -534,7 +531,7 @@ int GridShuffler::getLocalEnergy(const int idx, const ArrayOf<ValueID>& state) c
     const int col = idx % gridCol_;
     int energy = 0;
 
-    if (!config_.allow_fixed_points && originalPos_[val] == idx) {
+    if (!config_.allowFixedPoints && originalPos_[val] == idx) {
         energy += penaltyWeights_.fixedPoint;
     }
 
@@ -556,7 +553,7 @@ int GridShuffler::getLocalEnergy(const int idx, const ArrayOf<ValueID>& state) c
         const int neighbor_val = state[n_idx];
         if (IDToString_[neighbor_val].empty())
             continue;
-        if (!config_.allow_original_neighbors) {
+        if (!config_.allowOriginalNeighbors) {
             if (originalNeighborsMatrix_.test(static_cast<uint64_t>(val) * gridSize_ + neighbor_val)) {
                 energy += penaltyWeights_.originalNeighbor;
             }
@@ -628,9 +625,7 @@ bool GridShuffler::validateGridInternal(const Grid& grid) const {
         posMap[id] = idx;
     }
 
-    if (std::ranges::any_of(std::views::iota(0, gridSize_), [&](const int idx) {
-        return !isFrozen_.test(idx) && !seen.test(idx);
-    })) return false;
+    if (!(isFrozen_ | seen).all()) return false;
 
     const int energy = std::ranges::fold_left(
         std::views::iota(0, gridSize_), 0,

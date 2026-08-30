@@ -11,6 +11,7 @@
       @clear-colors="handleClearColors"
       @constraints-import="handleConstraintsImport"
       @reset-constraints="handleResetConstraints"
+      @open-constraints-editor="isConstraintsEditorOpen = true"
     />
 
     <main class="centralwidget">
@@ -51,6 +52,15 @@
     </main>
 
     <AppFooter :status-text="statusText" :is-grid-loaded="grid.isGridLoaded.value" />
+
+    <ConstraintsEditor
+      :visible="isConstraintsEditorOpen"
+      :initial-config="constraints.currentConfigJson.value"
+      :names="allNames"
+      :check-feasibility="checkFeasibility"
+      @apply="handleConstraintsApply"
+      @cancel="isConstraintsEditorOpen = false"
+    />
   </div>
 </template>
 
@@ -62,6 +72,7 @@ import AppFooter from '@/components/layout/AppFooter.vue'
 import PageNavigator from '@/components/controls/PageNavigator.vue'
 import ShuffleButton from '@/components/controls/ShuffleButton.vue'
 import SeatGrid from '@/components/grid/SeatGrid.vue'
+import ConstraintsEditor from '@/components/constraints/ConstraintsEditor.vue'
 
 import { useWasm } from '@/composables/useWasm'
 import { useGridShuffle } from '@/composables/useGridShuffle'
@@ -71,7 +82,7 @@ import { useFileIO } from '@/composables/useFileIO'
 import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts'
 import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
 
-import type { Grid, PointerOf } from '@/assets/wasm/alloc_algo'
+import type { FeasibilityReport, Grid, PointerOf } from '@/assets/wasm/alloc_algo'
 import { Position } from '@/utils/Position.ts'
 
 // ==========================================
@@ -93,6 +104,7 @@ const appVersion = __APP_VERSION__
 // ==========================================
 const statusText = ref('未導入')
 const isOriginal = ref(false)
+const isConstraintsEditorOpen = ref(false)
 
 // Tagged cell for swap interaction
 const taggedCell = ref<PointerOf<Position>>(null)
@@ -107,6 +119,23 @@ const renderedGrid = computed<Grid | null>(() => {
   if (grid.showOriginal.value && grid.originalGrid.value) return grid.originalGrid.value
   return grid.currentGrid.value
 })
+
+// Unique names from the imported seating chart, for constraint editor autocomplete
+const allNames = computed(() => {
+  const original = grid.originalGrid.value
+  if (!original || original.empty()) return []
+  return [...new Set(original.rawData().filter((name) => name.trim() !== ''))]
+})
+
+// Test whether the given constraints JSON is satisfiable against the imported grid
+const checkFeasibility = (json: string): FeasibilityReport | null => {
+  const module = wasm.wasmModule.value
+  const original = grid.originalGrid.value
+  if (!module || !original || original.empty()) return null
+  const cfg = constraints.buildWasmConfigFromJson(module, json)
+  if (!cfg) return null
+  return module.checkFeasibility(original, cfg, true, 50_000)
+}
 
 // ==========================================
 // Lifecycle
@@ -266,6 +295,28 @@ const handleConstraintsImport = async (file: File) => {
 const handleResetConstraints = () => {
   constraints.resetConstraints()
   statusText.value = `約束已重設。已還原為基礎隨機分配算法。`
+}
+
+const handleConstraintsApply = async (json: string) => {
+  const success = constraints.loadConstraints(json)
+  if (!success) return
+
+  statusText.value = `約束已更新。`
+
+  // Apply constraints immediately if wasm is ready
+  if (wasm.wasmReady.value && typeof grid.applyConfig === 'function') {
+    const cfg = constraints.buildWasmConfig(wasm.wasmModule.value)
+    const applied = await grid.applyConfig(cfg)
+    if (applied) {
+      statusText.value += ' 已套用約束。'
+    } else {
+      statusText.value += ' 套用約束失敗，請重新導入座位配置或手動洗牌。'
+    }
+  } else {
+    statusText.value += ' 請重新導入座位配置或洗牌以套用新約束。'
+  }
+
+  isConstraintsEditorOpen.value = false
 }
 
 // ==========================================
