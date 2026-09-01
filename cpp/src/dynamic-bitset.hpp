@@ -2,14 +2,12 @@
 
 #include <vector>
 #include <algorithm>
-#include <cstdint>
 #include <limits>
 #include <stdexcept>
 #include <bit>
 #include <numeric>
 #include <functional>
 #include <ranges>
-#include <bitset>
 
 class DynamicBitset final {
     public:
@@ -33,7 +31,9 @@ class DynamicBitset final {
 
         constexpr void fill(bool value) noexcept;
 
+        [[nodiscard]]
         constexpr SizeType trueCount() const noexcept;
+        [[nodiscard]]
         constexpr SizeType falseCount() const noexcept;
 
         [[nodiscard]]

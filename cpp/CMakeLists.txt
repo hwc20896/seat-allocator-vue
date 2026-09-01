@@ -27,6 +27,7 @@ if(EMSCRIPTEN)
         "-lembind"        # Required for embind support
         "-sASYNCIFY_STACK_SIZE=262144"  # 256kB
         "-sASYNCIFY"
+        "--emit-tsd" "${CMAKE_CURRENT_BINARY_DIR}/alloc_algo.d.ts"
     )
 
     if(NOT DEFINED CMAKE_BUILD_TYPE OR CMAKE_BUILD_TYPE STREQUAL "Release")
@@ -39,15 +40,33 @@ if(EMSCRIPTEN)
 
     set(VUE_PROJECT_DIR "${CMAKE_SOURCE_DIR}/..")
 
-    add_custom_command(TARGET alloc_algo POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
+    set(WASM_COPY_SOURCES
         "$<TARGET_FILE:alloc_algo>"
-        "${VUE_PROJECT_DIR}/src/assets/wasm/alloc_algo.js"
-        COMMAND ${CMAKE_COMMAND} -E copy
         "$<TARGET_FILE_DIR:alloc_algo>/alloc_algo.wasm"
+        "${CMAKE_CURRENT_BINARY_DIR}/alloc_algo.d.ts"
+    )
+    set(WASM_COPY_DESTS
+        "${VUE_PROJECT_DIR}/src/assets/wasm/alloc_algo.js"
         "${VUE_PROJECT_DIR}/public/alloc_algo.wasm"
+        "${VUE_PROJECT_DIR}/src/assets/wasm/alloc_algo.d.ts"
+    )
+
+    set(WASM_COPY_COMMANDS)
+    foreach(src dst IN ZIP_LISTS WASM_COPY_SOURCES WASM_COPY_DESTS)
+        list(APPEND WASM_COPY_COMMANDS
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different "${src}" "${dst}")
+    endforeach()
+
+    add_custom_command(TARGET alloc_algo POST_BUILD
+        ${WASM_COPY_COMMANDS}
         COMMENT "Copying WASM outputs to Vue project directories"
     )
 else()
-    message(WARNING "EMSCRIPTEN not found. Building native executable.")
+    message(
+        FATAL_ERROR
+            "EMSCRIPTEN not found. This project is a WebAssembly-only module: "
+            "wasm-bridge.cpp is an embind bridge and has no main(). "
+            "Please configure with the Emscripten toolchain, e.g.: "
+            "cmake --preset wasm (make sure EMSDK is set)."
+    )
 endif()

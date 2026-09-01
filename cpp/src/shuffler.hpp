@@ -23,13 +23,14 @@
 struct ResultType {
     int doneAtAttempt;
     int doneAtStep;
-    int64_t tookMUS;
+    double tookMUS;
 };
 
 enum class ShuffleError : int {
     EmptyGrid,
     Unsatisfiable,
-    MaxAttemptsReached
+    MaxAttemptsReached,
+    Unknown,
 };
 
 class GridShuffler final {
@@ -340,7 +341,7 @@ std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
                     [this](const int val){return IDToString_[val];}
                 ) | std::ranges::to<ArrayOf<DataType>>()
             );
-            return ResultType{.doneAtAttempt=attempt, .doneAtStep=step, .tookMUS=chrn::duration_cast<chrn::microseconds>(end - algoStart).count()};
+            return ResultType{.doneAtAttempt=attempt, .doneAtStep=step, .tookMUS=static_cast<double>(chrn::duration_cast<chrn::microseconds>(end - algoStart).count())};
         }
 #ifdef __EMSCRIPTEN__
         if (attempt % 200 == 0) {

@@ -1,0 +1,26 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 22,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "wasm",
+      "displayName": "WebAssembly (Release)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/../algo-build",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "wasm",
+      "configurePreset": "wasm"
+    }
+  ]
+}

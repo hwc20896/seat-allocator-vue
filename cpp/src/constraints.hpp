@@ -2,7 +2,6 @@
 
 #include <variant>
 #include <string>
-#include <vector>
 
 struct ForceRow {
     std::string first;

@@ -93,7 +93,7 @@ Grid Grid::fromCSVString(const std::string& csvString) {
     const size_t len = csvString.size();
 
     while (i < len) {
-        char c = csvString[i];
+        const char c = csvString[i];
 
         if (in_quotes) {
             if (c == '"') {
