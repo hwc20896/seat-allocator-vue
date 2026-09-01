@@ -164,7 +164,7 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import type { FeasibilityReport, ForbiddenPairType } from '@/assets/wasm/alloc_algo'
+import type { FeasibilityReport } from '@/assets/wasm/alloc_algo'
 import type { Constraint } from '@/utils/JSONTypes'
 import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts'
 
@@ -193,7 +193,7 @@ interface EditorState {
   allowFixedPoints: boolean
   allowOriginalNeighbors: boolean
   diagonalsAreNeighbors: boolean
-  customForbiddenPairs: ForbiddenPairType[]
+  customForbiddenPairs: [string, string][]
   constraints: EditableConstraint[]
 }
 
@@ -267,7 +267,7 @@ const parseConfig = (json: string): EditorState => {
       customForbiddenPairs: Array.isArray(obj.customForbiddenPairs)
         ? obj.customForbiddenPairs
             .filter((p): p is [unknown, unknown] => Array.isArray(p) && p.length >= 2)
-            .map((p) => [String(p[0]), String(p[1])] as ForbiddenPairType)
+            .map((p) => [String(p[0]), String(p[1])] as [string, string])
         : [],
       constraints: Array.isArray(rawConstraints)
         ? rawConstraints
@@ -360,10 +360,12 @@ const handleTestConstraints = () => {
     return
   }
 
+  const layer = typeof report.layer === 'string' ? report.layer : ''
+
   if (report.status === 0) {
     testResult.value = { status: 'ok', message: '約束可滿足，存在可行解。' }
   } else if (report.status === 1) {
-    const layerNote = LAYER_LABELS[report.layer] ? `（${LAYER_LABELS[report.layer]}）` : ''
+    const layerNote = LAYER_LABELS[layer] ? `（${LAYER_LABELS[layer]}）` : ''
     testResult.value = {
       status: 'unsatisfiable',
       message: `約束無法同時滿足${layerNote}：${report.reason}`,

@@ -6,6 +6,13 @@
     // Extra safety for array and object lookups, but may have false positives.
     "noUncheckedIndexedAccess": true,
 
+    "lib": [
+      "ES2022",  //  Assuming we are using ECMAScript 2022. I have no ****ing idea where it actually is.
+      "DOM",
+      "DOM.Iterable",
+      "ESNext.Disposable"
+    ],
+
     // Path mapping for cleaner imports.
     "paths": {
       "@/*": ["./src/*"]

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { shallowRef } from 'vue'
 import * as XLSX from '@e965/xlsx'
 import { useFileIO } from './useFileIO'
-import { Grid } from '@/assets/wasm/alloc_algo'
+import { FakeGrid, FakeStringVector } from '@/utils/__tests__/fakeGrid'
 
 vi.mock('@e965/xlsx', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@e965/xlsx')>()
@@ -17,55 +17,8 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-class FakeGrid implements Grid {
-  private data: string[][]
-
-  constructor(rows = 0, cols = 0, flatData: string[] = []) {
-    this.data = Array.from({ length: rows }, (_, r) =>
-      Array.from({ length: cols }, (_, c) => flatData[r * cols + c] ?? ''),
-    )
-  }
-
-  getByPos(row: number, col: number): string {
-    return this.data[row]?.[col] ?? ''
-  }
-  getByIndex(index: number): string {
-    const colCount = this.colCount() || 1
-    return this.getByPos(Math.floor(index / colCount), index % colCount)
-  }
-  setByPos(row: number, col: number, value: string): void {
-    const r = this.data[row]
-    if (r) r[col] = value
-  }
-  setByIndex(index: number, value: string): void {
-    const colCount = this.colCount() || 1
-    this.setByPos(Math.floor(index / colCount), index % colCount, value)
-  }
-  rowCount(): number {
-    return this.data.length
-  }
-  colCount(): number {
-    return this.data.reduce((max, r) => Math.max(max, r.length), 0)
-  }
-  size(): number {
-    return this.rowCount() * this.colCount()
-  }
-  empty(): boolean {
-    return this.rowCount() === 0
-  }
-  rawData(): string[] {
-    return this.data.flat()
-  }
-  clone(): Grid {
-    return new FakeGrid(this.rowCount(), this.colCount(), this.rawData())
-  }
-  toCSVString(): string {
-    return ''
-  }
-}
-
 const setup = () => {
-  const wasmModule = shallowRef({ Grid: FakeGrid } as never)
+  const wasmModule = shallowRef({ Grid: FakeGrid, StringVector: FakeStringVector } as never)
   return { wasmModule, ...useFileIO(wasmModule) }
 }
 
@@ -86,7 +39,12 @@ describe('useFileIO', () => {
 
   it('parseXLSX 解析工作表為 Grid', async () => {
     const { parseXLSX } = setup()
-    const grid = await parseXLSX(makeXLSXFile([['A1', 'A2'], ['B1', 'B2']]))
+    const grid = await parseXLSX(
+      makeXLSXFile([
+        ['A1', 'A2'],
+        ['B1', 'B2'],
+      ]),
+    )
     expect(grid).toBeInstanceOf(FakeGrid)
     expect(grid.rowCount()).toBe(2)
     expect(grid.colCount()).toBe(2)

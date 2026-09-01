@@ -1,62 +1,7 @@
 // src/utils/Position.test.ts
 import { describe, expect, it } from 'vitest'
-import type { Grid } from '@/assets/wasm/alloc_algo'
 import { Position, swap } from './Position'
-
-class FakeGrid implements Grid {
-  private data: string[][]
-
-  constructor(data: string[][]) {
-    this.data = data
-  }
-
-  clone(): Grid {
-    return new FakeGrid(this.data.map((row) => [...row]))
-  }
-
-  rowCount(): number {
-    return this.data.length
-  }
-
-  colCount(): number {
-    return this.data[0]?.length ?? 0
-  }
-
-  getByPos(row: number, col: number): string {
-    return this.data[row]?.[col] ?? ''
-  }
-
-  setByPos(row: number, col: number, value: string): void {
-    const targetRow = this.data[row]
-    if (targetRow) targetRow[col] = value
-  }
-
-  getByIndex(idx: number): string {
-    const cols = this.colCount()
-    return this.getByPos(Math.floor(idx / cols), idx % cols)
-  }
-
-  setByIndex(idx: number, value: string): void {
-    const cols = this.colCount()
-    this.setByPos(Math.floor(idx / cols), idx % cols, value)
-  }
-
-  size(): number {
-    return this.rowCount() * this.colCount()
-  }
-
-  empty(): boolean {
-    return this.data.length === 0
-  }
-
-  rawData(): string[] {
-    return this.data.flat()
-  }
-
-  toCSVString(): string {
-    return this.data.map((row) => row.join(',')).join('\n')
-  }
-}
+import { FakeGrid } from '@/utils/__tests__/fakeGrid'
 
 describe('Position', () => {
   it('toString 支援 baseZero 參數', () => {

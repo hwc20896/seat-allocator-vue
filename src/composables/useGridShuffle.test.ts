@@ -2,54 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick, ref, shallowRef } from 'vue'
 import { Position } from '@/utils/Position.ts'
 import { useGridShuffle } from './useGridShuffle'
-import type { Grid, GridShuffler, ModuleExports, PointerOf, ShuffleConfig } from '@/assets/wasm/alloc_algo'
-
-class FakeGrid implements Grid {
-  private data: string[][]
-
-  constructor(rows = 0, cols = 0, flatData: string[] = []) {
-    this.data = Array.from({ length: rows }, (_, r) =>
-      Array.from({ length: cols }, (_, c) => flatData[r * cols + c] ?? ''),
-    )
-  }
-
-  getByPos(row: number, col: number): string {
-    return this.data[row]?.[col] ?? ''
-  }
-  getByIndex(index: number): string {
-    const colCount = this.colCount() || 1
-    return this.getByPos(Math.floor(index / colCount), index % colCount)
-  }
-  setByPos(row: number, col: number, value: string): void {
-    const r = this.data[row]
-    if (r) r[col] = value
-  }
-  setByIndex(index: number, value: string): void {
-    const colCount = this.colCount() || 1
-    this.setByPos(Math.floor(index / colCount), index % colCount, value)
-  }
-  rowCount(): number {
-    return this.data.length
-  }
-  colCount(): number {
-    return this.data.reduce((max, r) => Math.max(max, r.length), 0)
-  }
-  size(): number {
-    return this.rowCount() * this.colCount()
-  }
-  empty(): boolean {
-    return this.rowCount() === 0
-  }
-  rawData(): string[] {
-    return this.data.flat()
-  }
-  clone(): Grid {
-    return new FakeGrid(this.rowCount(), this.colCount(), this.rawData())
-  }
-  toCSVString(): string {
-    return ''
-  }
-}
+import type { GridShuffler, MainModule, ShuffleConfig } from '@/assets/wasm/alloc_algo'
+import { FakeGrid } from '@/utils/__tests__/fakeGrid'
 
 class FakeGridShuffler {
   setConfig = vi.fn()
@@ -85,10 +39,10 @@ const makeFakeModule = (shufflerClass: typeof FakeGridShuffler = FakeGridShuffle
 
 const fakeModule = makeFakeModule()
 
-const setup = (getShuffleConfig?: () => PointerOf<ShuffleConfig>) => {
-  const wasmModule = shallowRef<PointerOf<ModuleExports>>(null as never)
+const setup = (getShuffleConfig?: () => ShuffleConfig | null) => {
+  const wasmModule = shallowRef<MainModule | null>(null)
   const wasmReady = ref(false)
-  const shufflerInstance = shallowRef<PointerOf<GridShuffler>>(null as never)
+  const shufflerInstance = shallowRef<GridShuffler | null>(null)
   const api = useGridShuffle(wasmModule, wasmReady, shufflerInstance, getShuffleConfig)
   return { wasmModule, wasmReady, shufflerInstance, ...api }
 }
@@ -239,7 +193,11 @@ describe('useGridShuffle', () => {
       ctx.wasmModule.value = fakeModule as never
       ctx.loadNewGrid(makeGrid())
       const shuffler = ctx.shufflerInstance.value as unknown as FakeGridShuffler
-      shuffler.shuffle.mockResolvedValue({ success: false, error: 'conflict', data: { tookMUS: 1 } })
+      shuffler.shuffle.mockResolvedValue({
+        success: false,
+        error: 'conflict',
+        data: { tookMUS: 1 },
+      })
       const promise = ctx.beginShuffleAnimation()
       await vi.advanceTimersByTimeAsync(1_000)
       expect(await promise).toBe(false)

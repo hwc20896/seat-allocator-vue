@@ -82,7 +82,7 @@ import { useFileIO } from '@/composables/useFileIO'
 import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts'
 import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
 
-import type { FeasibilityReport, Grid, PointerOf } from '@/assets/wasm/alloc_algo'
+import type { FeasibilityReport, Grid } from '@/assets/wasm/alloc_algo'
 import { Position } from '@/utils/Position.ts'
 
 // ==========================================
@@ -107,7 +107,7 @@ const isOriginal = ref(false)
 const isConstraintsEditorOpen = ref(false)
 
 // Tagged cell for swap interaction
-const taggedCell = ref<PointerOf<Position>>(null)
+const taggedCell = ref<Position | null>(null)
 const taggedRow = computed(() => taggedCell.value?.row ?? null)
 const taggedCol = computed(() => taggedCell.value?.col ?? null)
 
@@ -124,7 +124,7 @@ const renderedGrid = computed<Grid | null>(() => {
 const allNames = computed(() => {
   const original = grid.originalGrid.value
   if (!original || original.empty()) return []
-  return [...new Set(original.rawData().filter((name) => name.trim() !== ''))]
+  return [...new Set(Array.from(original.rawData()).filter((name) => name.trim() !== ''))]
 })
 
 // Test whether the given constraints JSON is satisfiable against the imported grid

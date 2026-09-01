@@ -128,15 +128,17 @@ export function useKeyboardShortcut(
     cleanup: () => {
       document.removeEventListener('keydown', handler)
     },
-    handler
+    handler,
   }
 }
 
 export const isArrowKey = (key: string): boolean => {
-  return ([
-    SPECIAL_KEYS.ARROW_UP,
-    SPECIAL_KEYS.ARROW_DOWN,
-    SPECIAL_KEYS.ARROW_LEFT,
-    SPECIAL_KEYS.ARROW_RIGHT,
-  ] as SpecialKey[]).includes(key as SpecialKey)
+  return (
+    [
+      SPECIAL_KEYS.ARROW_UP,
+      SPECIAL_KEYS.ARROW_DOWN,
+      SPECIAL_KEYS.ARROW_LEFT,
+      SPECIAL_KEYS.ARROW_RIGHT,
+    ] as SpecialKey[]
+  ).includes(key as SpecialKey)
 }

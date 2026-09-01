@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import type { ModuleExports, PointerOf } from '@/assets/wasm/alloc_algo'
+import type { MainModule } from '@/assets/wasm/alloc_algo'
 import type { ImportedConstraint } from '@/utils/JSONTypes.ts'
 import { isBoolean } from 'lodash-es'
 
@@ -15,9 +15,9 @@ const DEFAULT_CONFIG_JSON = JSON.stringify({
 export function useConstraintsConfig() {
   const hasCustomConfig = ref(false)
   const currentConfigJson = ref<string>(DEFAULT_CONFIG_JSON)
-  const parsedConfig = ref<PointerOf<ImportedConstraint>>(null)
+  const parsedConfig = ref<ImportedConstraint | null>(null)
 
-  const validateBasicStructure = (obj: PointerOf<ImportedConstraint>): boolean => {
+  const validateBasicStructure = (obj: ImportedConstraint | null): boolean => {
     if (typeof obj !== 'object' || obj === null) return false
     if (obj.customForbiddenPairs && !Array.isArray(obj.customForbiddenPairs)) return false
     return !obj.constraints || Array.isArray(obj.constraints)
@@ -44,12 +44,12 @@ export function useConstraintsConfig() {
 
   // Build a WASM ShuffleConfig instance from a constraints JSON string.
   // Returns null when wasmModule is not available.
-  const buildWasmConfigFromJson = (wasmModule: PointerOf<ModuleExports>, json: string) => {
+  const buildWasmConfigFromJson = (wasmModule: MainModule | null, json: string) => {
     if (!wasmModule) return null
 
     const cfg = new wasmModule.ShuffleConfig()
 
-    let o: PointerOf<ImportedConstraint>
+    let o: ImportedConstraint | null
     try {
       o = JSON.parse(json) as ImportedConstraint
     } catch (e) {
@@ -122,7 +122,7 @@ export function useConstraintsConfig() {
   }
 
   // Build a WASM ShuffleConfig instance from the currently applied JSON.
-  const buildWasmConfig = (wasmModule: PointerOf<ModuleExports>) =>
+  const buildWasmConfig = (wasmModule: MainModule | null) =>
     buildWasmConfigFromJson(wasmModule, currentConfigJson.value)
 
   const resetConstraints = () => {

@@ -1,5 +1,3 @@
-import type { ForbiddenPairType} from '@/assets/wasm/alloc_algo'
-
 export interface Constraint {
   type: string
   name?: string
@@ -13,6 +11,6 @@ export interface ImportedConstraint {
   allowFixedPoints: boolean
   allowOriginalNeighbors: boolean
   diagonalsAreNeighbors: boolean
-  customForbiddenPairs: ForbiddenPairType[]
+  customForbiddenPairs: [string, string][]
   constraints: Constraint[]
 }

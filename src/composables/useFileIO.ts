@@ -1,8 +1,8 @@
 import * as XLSX from '@e965/xlsx'
-import type { Grid, ModuleExports, PointerOf } from '@/assets/wasm/alloc_algo'
+import type { Grid, MainModule } from '@/assets/wasm/alloc_algo'
 import type { ShallowRef } from 'vue'
 
-export function useFileIO(wasmModule: ShallowRef<PointerOf<ModuleExports>>) {
+export function useFileIO(wasmModule: ShallowRef<MainModule | null>) {
   const readTextFile = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
@@ -36,17 +36,16 @@ export function useFileIO(wasmModule: ShallowRef<PointerOf<ModuleExports>>) {
           const rowCount = filteredRows.length
           const colCount = Math.max(...filteredRows.map((row) => row.length))
 
-          const flatData: string[] = []
+          const flatData = new wasmModule.value!.StringVector()
           for (let r = 0; r < rowCount; r++) {
             for (let c = 0; c < colCount; c++) {
               const cell = filteredRows[r]?.[c]
-              flatData.push(cell === null || cell === undefined ? '' : String(cell).trim())
+              flatData.push_back(cell === null || cell === undefined ? '' : String(cell).trim())
             }
           }
-          console.log(Array.isArray(flatData))
-          console.log(flatData.every((x) => typeof x === 'string'))
 
           resolve(new wasmModule.value!.Grid(rowCount, colCount, flatData))
+          flatData.delete()
         } catch (err) {
           reject(err)
         }

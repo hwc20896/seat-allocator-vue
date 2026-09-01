@@ -1,14 +1,14 @@
 import { computed, ref, type Ref, type ShallowRef, shallowRef, watch } from 'vue'
-import type { PointerOf, ModuleExports, GridShuffler, ShuffleConfig, Grid } from '@/assets/wasm/alloc_algo'
+import type { MainModule, GridShuffler, ShuffleConfig, Grid } from '@/assets/wasm/alloc_algo'
 import { getShuffleErrorMessage } from '@/utils/shuffleError.ts'
 import { swap, Position } from '@/utils/Position.ts'
 import { shuffle } from 'lodash-es'
 
 export function useGridShuffle(
-  wasmModule: ShallowRef<PointerOf<ModuleExports>>,
+  wasmModule: ShallowRef<MainModule | null>,
   wasmReady: Ref<boolean>,
-  shufflerInstance: ShallowRef<PointerOf<GridShuffler>>,
-  getShuffleConfig?: () => PointerOf<ShuffleConfig>,
+  shufflerInstance: ShallowRef<GridShuffler | null>,
+  getShuffleConfig?: () => ShuffleConfig | null,
 ) {
   const originalGrid = shallowRef<Grid | null>(null)
   const currentGrid = shallowRef<Grid | null>(null)
@@ -46,7 +46,7 @@ export function useGridShuffle(
         shufflerInstance.value.delete()
       }
 
-      let config: PointerOf<ShuffleConfig>
+      let config: ShuffleConfig | null
       try {
         config = getShuffleConfig ? getShuffleConfig() : null
       } catch (e) {
@@ -100,7 +100,7 @@ export function useGridShuffle(
     const getAnimationGrid = (grid: Grid) : Grid => {
       const result = grid.clone();
 
-      const cells = shuffle(result.rawData().filter(cell => cell !== ""));
+      const cells = shuffle(Array.from(result.rawData()).filter((cell) => cell !== ''))
 
       let index = 0
 
@@ -114,16 +114,14 @@ export function useGridShuffle(
     }
 
     try {
-      console.time("Shuffle Response took")
       const shuffleResult = await shufflerInstance.value.shuffle()
-      console.timeEnd('Shuffle Response took')
 
       if (!shuffleResult.success){
         console.warn(`Shuffle failed: ${shuffleResult.error}`)
         alert(getShuffleErrorMessage(shuffleResult.error))
         return false
       }
-      console.info(`Shuffle done in ${shuffleResult.data.tookMUS / 1000}ms.`);
+      console.info(`Shuffle done in ${shuffleResult.tookMUS / 1000}ms.`)
 
       let localAnimGrid = originalGrid.value?.clone()
 
@@ -196,13 +194,16 @@ export function useGridShuffle(
 
     try {
       const pristineGrid = shufflerInstance.value.getGridAt(currentIndex.value - 1)
-      return pristineGrid && pristineGrid.getByPos(pos.row, pos.col) !== currentGrid.value?.getByPos(pos.row, pos.col)
+      return (
+        pristineGrid &&
+        pristineGrid.getByPos(pos.row, pos.col) !== currentGrid.value?.getByPos(pos.row, pos.col)
+      )
     } catch (e) {
       return false
     }
   }
 
-  const applyConfig = async (cfg?: PointerOf<ShuffleConfig>) => {
+  const applyConfig = async (cfg?: ShuffleConfig | null) => {
     if (!wasmModule.value) {
       alert('WebAssembly 模組未就緒，無法套用約束。')
       return false
