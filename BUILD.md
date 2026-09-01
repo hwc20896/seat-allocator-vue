@@ -21,7 +21,7 @@
   - `cpp-build.bat` / `cpp-build.sh`：WASM 建置腳本
 - `src/assets/wasm/`：WASM 建置產出之一（`alloc_algo.js`，CMake 自動複製）
 - `public/`：WASM binary 產出（`alloc_algo.wasm`，CMake 自動複製）
-- `algo-build/`：CI 使用的 CMake 建置目錄（由 GitHub Actions 產生）
+- `algo-build/`：本地與 CI 共用的 CMake 建置目錄（由 CMake preset 指定）
 
 ---
 
@@ -229,11 +229,11 @@ python benchmark-compare.py curve.json --show
 
 - `deploy.yml`：push 到 `master` 時自動建置並部署 GitHub Pages，流程為：
   1. 安裝 Emscripten（`emscripten-core/setup-emsdk`，版本 6.0.0）
-  2. 在 `algo-build/` 以 `emcmake cmake ../cpp` 建置 WASM（`-DCMAKE_BUILD_TYPE=Release`）
+  2. 在 `cpp/` 以 CMake preset 建置 WASM（`emcmake cmake --preset wasm`，產出目錄為 `algo-build/`，Release 模式）
   3. `npm ci` 安裝前端依賴
   4. `npm run build` 產出 `dist/`
   5. 以 `peaceiris/actions-gh-pages` 將 `dist/` 部署到 GitHub Pages
-- `test.yml`：於 PR（`pull_request`）與 push 到 `master` 時執行單元測試，包含兩個並行 job：
+- `unit-test.yml`：於 PR（`pull_request`）與 push 到 `master` 時執行單元測試，包含兩個並行 job：
   1. 前端：`npm ci` 後執行 `npm run test:unit:ci`（Vitest 單次執行模式）
   2. 演算法：`cpp/tests` 以 vcpkg + CMake preset 建置 GoogleTest，並以 `ctest` 執行
 
