@@ -11,11 +11,19 @@
 
 using namespace emscripten;
 
+namespace {
+struct ShuffleReport {
+    bool success = false;
+    int doneAtAttempt = 0;
+    int doneAtStep = 0;
+    double tookMUS = 0;
+    ShuffleError error = ShuffleError::Unknown;
+};
+}
+
 EMSCRIPTEN_BINDINGS(GridShufflerModule) {
     register_vector<std::string>("StringVector");
     register_vector<Grid>("GridVector");
-    register_vector<Constraint>("ConstraintVector");
-    register_vector<std::pair<std::string, std::string>>("StringPairVector");
 
     //  struct Constraints
     value_object<ForceRow>("ForceRow")
@@ -48,8 +56,6 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .property("allowFixedPoints", &ShuffleConfig::allowFixedPoints)
         .property("allowOriginalNeighbors", &ShuffleConfig::allowOriginalNeighbors)
         .property("diagonalsAreNeighbors", &ShuffleConfig::diagonalsAreNeighbors)
-        .property("customForbiddenPairs", &ShuffleConfig::custom_forbidden_pairs)
-        .property("constraints", &ShuffleConfig::constraints)
         .function("setAllowFixedPoints", &ShuffleConfig::setAllowFixedPoints, allow_raw_pointers())
         .function("setAllowOriginalNeighbors", &ShuffleConfig::setAllowOriginalNeighbors, allow_raw_pointers())
         .function("setDiagonalsAreNeighbors", &ShuffleConfig::setDiagonalsAreNeighbors, allow_raw_pointers())
@@ -75,26 +81,33 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .field("customForbidden", &PenaltyWeights::customForbidden)
         .field("forbidShare", &PenaltyWeights::forbidShare);
 
+    enum_<FeasibilityStatus>("FeasibilityStatus", enum_value_type::number)
+        .value("Feasible", FeasibilityStatus::Feasible)
+        .value("Unsatisfiable", FeasibilityStatus::Unsatisfiable)
+        .value("Unknown", FeasibilityStatus::Unknown);
+
+    value_object<FeasibilityReport>("FeasibilityReport")
+        .field("status", &FeasibilityReport::status)
+        .field("layer", &FeasibilityReport::layer)
+        .field("reason", &FeasibilityReport::reason);
+
     enum_<ShuffleError>("ShuffleError", enum_value_type::string)
         .value("EmptyGrid", ShuffleError::EmptyGrid)
         .value("Unsatisfiable", ShuffleError::Unsatisfiable)
-        .value("MaxAttemptsReached", ShuffleError::MaxAttemptsReached);
+        .value("MaxAttemptsReached", ShuffleError::MaxAttemptsReached)
+        .value("Unknown", ShuffleError::Unknown);
+
+    value_object<ShuffleReport>("ShuffleReport")
+        .field("success", &ShuffleReport::success)
+        .field("doneAtAttempt", &ShuffleReport::doneAtAttempt)
+        .field("doneAtStep", &ShuffleReport::doneAtStep)
+        .field("tookMUS", &ShuffleReport::tookMUS)
+        .field("error", &ShuffleReport::error);
 
     class_<Grid>("Grid")
         .constructor<>()
         .constructor<int, int>()
-        .constructor(+[](const int rows, const int cols, const val& jsArray) {
-            std::vector<std::string> data;
-
-            const auto len = jsArray["length"].as<unsigned>();
-            data.reserve(len);
-
-            for (unsigned i = 0; i < len; ++i) {
-                data.push_back(jsArray[i].as<std::string>());
-            }
-
-            return std::make_unique<Grid>(rows, cols, std::move(data));
-        })
+        .constructor<int, int, std::vector<std::string>>()
         .function("getByPos", select_overload<const std::string& (int, int) const>(&Grid::get))
         .function("getByIndex", select_overload<const std::string& (int) const>(&Grid::get))
         .function("setByPos", select_overload<void (int, int, std::string)>(&Grid::set))
@@ -103,13 +116,7 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .function("colCount", &Grid::colCount)
         .function("size", &Grid::size)
         .function("empty", &Grid::empty)
-        .function("rawData", optional_override([](const Grid& self) {
-            val js_array = val::array();
-            for (const auto& str : self.rawData()) {
-                js_array.call<void>("push", str);
-            }
-            return js_array;
-        }))
+        .function("rawData", &Grid::rawData)
         .function("clone", &Grid::clone)
         .function("toCSVString", &Grid::toCSVString)
         .class_function("fromCSV", &Grid::fromCSVString);
@@ -123,26 +130,20 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .function("setPenaltyWeights", &GridShuffler::setPenaltyWeights)
         .function("getOriginalGrid", &GridShuffler::getOriginalGrid)
         .function("getGrid", select_overload<const Grid& () const noexcept>(&GridShuffler::getGrid))
-        .function("getGridAt", select_overload<const Grid& () const>(&GridShuffler::getGrid))
+        .function("getGridAt", select_overload<const Grid& (int) const>(&GridShuffler::getGrid))
         .function("shuffle", optional_override([](GridShuffler& self) {
             auto res = self.shuffle();
-
-            val js_obj = val::object();
+            ShuffleReport report;
             if (res.has_value()) {
-                js_obj.set("success", true);
-
-                val data_obj = val::object();
-                data_obj.set("tookMUS", static_cast<double>(res->tookMUS));  // μs
-                data_obj.set("doneAtAttempt", res->doneAtAttempt);
-                data_obj.set("doneAtStep", res->doneAtStep);
-
-                js_obj.set("data", data_obj);
+                report.success = true;
+                report.tookMUS = res->tookMUS;
+                report.doneAtAttempt = res->doneAtAttempt;
+                report.doneAtStep = res->doneAtStep;
             } else {
-                js_obj.set("success", false);
-                js_obj.set("error", res.error());
+                report.error = res.error();
             }
-            return js_obj;
-        }))
+            return report;
+        }), async{})
         .function("validateResult", &GridShuffler::validateResult)
         .function("clearShuffledGrids", &GridShuffler::clearShuffledGrids);
 
@@ -150,12 +151,6 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         const Grid& grid, const ShuffleConfig& cfg,
         const bool checkForbidShare, const int coloringNodeBudget
     ) {
-        const auto& [status, layer, reason] =
-            checkFeasibility(grid, cfg, {.checkForbidShare = checkForbidShare, .coloringNodeBudget = coloringNodeBudget});
-        val js_obj = val::object();
-        js_obj.set("status", static_cast<int>(status));  // 0/1/2
-        js_obj.set("layer", layer);
-        js_obj.set("reason", reason);
-        return js_obj;
+        return checkFeasibility(grid, cfg, {.checkForbidShare = checkForbidShare, .coloringNodeBudget = coloringNodeBudget});
     }));
 }

@@ -72,92 +72,92 @@
 </template>
 
 <script setup lang="ts">
-import { useTemplateRef } from 'vue'
-import DropDownMenu from '@/components/common/DropDownMenu.vue'
-import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts'
+import { useTemplateRef } from 'vue';
+import DropDownMenu from '@/components/common/DropDownMenu.vue';
+import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts';
 
 const props = defineProps<{
-  isGridLoaded: boolean
-  colorPresetCount: number
-  hasCustomConfig: boolean
-}>()
+  isGridLoaded: boolean;
+  colorPresetCount: number;
+  hasCustomConfig: boolean;
+}>();
 
 const emit = defineEmits<{
-  'csv-import': [file: File]
-  'xlsx-import': [file: File]
-  'grid-export': []
-  'color-import': [file: File]
-  'clear-colors': []
-  'constraints-import': [file: File]
-  'reset-constraints': []
-  'open-constraints-editor': []
-}>()
+  'csv-import': [file: File];
+  'xlsx-import': [file: File];
+  'grid-export': [];
+  'color-import': [file: File];
+  'clear-colors': [];
+  'constraints-import': [file: File];
+  'reset-constraints': [];
+  'open-constraints-editor': [];
+}>();
 
-const gridInputRef = useTemplateRef<HTMLInputElement>('gridInputRef')
-const colorInputRef = useTemplateRef<HTMLInputElement>('colorInputRef')
-const constraintsInputRef = useTemplateRef<HTMLInputElement>('constraintsInputRef')
+const gridInputRef = useTemplateRef<HTMLInputElement>('gridInputRef');
+const colorInputRef = useTemplateRef<HTMLInputElement>('colorInputRef');
+const constraintsInputRef = useTemplateRef<HTMLInputElement>('constraintsInputRef');
 
 const getFileFromEvent = (event: Event): File | null => {
-  const target = event.target as HTMLInputElement
-  if (!target.files?.length) return null
-  const file = target.files[0]!
-  target.value = ''
-  return file
-}
+  const target = event.target as HTMLInputElement;
+  if (!target.files?.length) return null;
+  const file = target.files[0]!;
+  target.value = '';
+  return file;
+};
 
 const onGridImport = (event: Event) => {
-  const file = getFileFromEvent(event)
-  if (file?.name.endsWith('.csv')) emit('csv-import', file)
-  if (file?.name.endsWith('.xlsx')) emit('xlsx-import', file)
-}
+  const file = getFileFromEvent(event);
+  if (file?.name.endsWith('.csv')) emit('csv-import', file);
+  if (file?.name.endsWith('.xlsx')) emit('xlsx-import', file);
+};
 
 const onColorImport = (event: Event) => {
-  const file = getFileFromEvent(event)
-  if (file) emit('color-import', file)
-}
+  const file = getFileFromEvent(event);
+  if (file) emit('color-import', file);
+};
 
 const onConstraintsImport = (event: Event) => {
-  const file = getFileFromEvent(event)
-  if (file) emit('constraints-import', file)
-}
+  const file = getFileFromEvent(event);
+  if (file) emit('constraints-import', file);
+};
 
 useKeyboardShortcut('ctrl+i', () => {
-  console.debug('ctrl+i triggered')
-  gridInputRef.value?.click()
-})
+  console.debug('ctrl+i triggered');
+  gridInputRef.value?.click();
+});
 
 useKeyboardShortcut('ctrl+e', () => {
-  console.debug('ctrl+e triggered')
-  if (!props.isGridLoaded) return
-  emit('grid-export')
-})
+  console.debug('ctrl+e triggered');
+  if (!props.isGridLoaded) return;
+  emit('grid-export');
+});
 
 useKeyboardShortcut('ctrl+shift+c', () => {
-  console.debug('ctrl+shift+c triggered')
-  colorInputRef.value?.click()
-})
+  console.debug('ctrl+shift+c triggered');
+  colorInputRef.value?.click();
+});
 
 useKeyboardShortcut('ctrl+alt+c', () => {
-  console.debug('ctrl+alt+c triggered')
-  if (props.colorPresetCount === 0) return
-  emit('clear-colors')
-})
+  console.debug('ctrl+alt+c triggered');
+  if (props.colorPresetCount === 0) return;
+  emit('clear-colors');
+});
 
 useKeyboardShortcut('ctrl+shift+k', () => {
-  console.debug('ctrl+shift+k triggered')
-  constraintsInputRef.value?.click()
-})
+  console.debug('ctrl+shift+k triggered');
+  constraintsInputRef.value?.click();
+});
 
 useKeyboardShortcut('ctrl+alt+k', () => {
-  console.debug('ctrl+alt+k triggered')
-  if (!props.hasCustomConfig) return
-  emit('reset-constraints')
-})
+  console.debug('ctrl+alt+k triggered');
+  if (!props.hasCustomConfig) return;
+  emit('reset-constraints');
+});
 
 useKeyboardShortcut('ctrl+shift+m', () => {
-  console.debug('ctrl+shift+m triggered')
-  emit('open-constraints-editor')
-})
+  console.debug('ctrl+shift+m triggered');
+  emit('open-constraints-editor');
+});
 </script>
 
 <style scoped>

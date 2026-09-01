@@ -1,29 +1,29 @@
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue';
 
 export function useUnsavedChangesGuard() {
-  const hasUnsavedChanges = ref(false)
+  const hasUnsavedChanges = ref(false);
 
   const markDirty = () => {
-    hasUnsavedChanges.value = true
-  }
+    hasUnsavedChanges.value = true;
+  };
 
   const markClean = () => {
-    hasUnsavedChanges.value = false
-  }
+    hasUnsavedChanges.value = false;
+  };
 
   const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-    if (!hasUnsavedChanges.value) return
-    event.preventDefault()
-    event.returnValue = ''
-  }
+    if (!hasUnsavedChanges.value) return;
+    event.preventDefault();
+    event.returnValue = '';
+  };
 
   onMounted(() => {
-    window.addEventListener('beforeunload', handleBeforeUnload)
-  })
+    window.addEventListener('beforeunload', handleBeforeUnload);
+  });
 
   onBeforeUnmount(() => {
-    window.removeEventListener('beforeunload', handleBeforeUnload)
-  })
+    window.removeEventListener('beforeunload', handleBeforeUnload);
+  });
 
-  return { hasUnsavedChanges, markDirty, markClean }
+  return { hasUnsavedChanges, markDirty, markClean };
 }

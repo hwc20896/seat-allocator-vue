@@ -13,22 +13,22 @@
 </template>
 
 <script setup lang="ts">
-import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts'
+import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts';
 
 const props = defineProps<{
-  isShuffling: boolean
-  isGridLoaded: boolean
-}>()
+  isShuffling: boolean;
+  isGridLoaded: boolean;
+}>();
 
 const emit = defineEmits<{
-  shuffle: []
-}>()
+  shuffle: [];
+}>();
 
 useKeyboardShortcut('enter', () => {
-  console.debug('Enter pressed')
-  if (!props.isGridLoaded || props.isShuffling) return
-  emit('shuffle')
-})
+  console.debug('Enter pressed');
+  if (!props.isGridLoaded || props.isShuffling) return;
+  emit('shuffle');
+});
 </script>
 
 <style scoped>

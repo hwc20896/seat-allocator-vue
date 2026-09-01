@@ -9,9 +9,9 @@
 
 <script setup lang="ts">
 defineProps<{
-  statusText: string
-  isGridLoaded: boolean
-}>()
+  statusText: string;
+  isGridLoaded: boolean;
+}>();
 </script>
 
 <style scoped>

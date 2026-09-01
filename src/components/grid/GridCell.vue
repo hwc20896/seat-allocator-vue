@@ -6,34 +6,34 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed } from 'vue';
 
 const props = defineProps<{
-  text: string
-  color: string
-  isTagged: boolean
-  isSwapped: boolean
-  isShuffling: boolean
-  isCurrentlyOriginal: boolean
-}>()
+  text: string;
+  color: string;
+  isTagged: boolean;
+  isSwapped: boolean;
+  isShuffling: boolean;
+  isCurrentlyOriginal: boolean;
+}>();
 
 defineEmits<{
-  click: []
-}>()
+  click: [];
+}>();
 
 const contentClass = computed(() => {
-  const classes: string[] = []
-  if (props.isTagged) classes.push('tagged')
-  if (props.isSwapped) classes.push('swapped')
-  if (!props.text) classes.push('empty-element')
-  if (props.isCurrentlyOriginal) classes.push('original-view')
-  if (props.isShuffling) classes.push('shuffling')
-  return classes
-})
+  const classes: string[] = [];
+  if (props.isTagged) classes.push('tagged');
+  if (props.isSwapped) classes.push('swapped');
+  if (!props.text) classes.push('empty-element');
+  if (props.isCurrentlyOriginal) classes.push('original-view');
+  if (props.isShuffling) classes.push('shuffling');
+  return classes;
+});
 
 const cellStyle = computed(() => ({
   color: props.color,
-}))
+}));
 </script>
 
 <style scoped>
@@ -183,7 +183,7 @@ const cellStyle = computed(() => ({
 
 .cell-content.original-view:is(.empty-element) {
   border-style: dotted;
-  border-color: rgba(52, 211, 153, 0.6)
+  border-color: rgba(52, 211, 153, 0.6);
 }
 
 .cell-content.original-view::before {

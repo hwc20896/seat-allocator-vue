@@ -1,5 +1,5 @@
 // composables/useKeyboardShortcut.ts
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted } from 'vue';
 
 export const SPECIAL_KEYS = {
   // 方向鍵
@@ -32,25 +32,25 @@ export const SPECIAL_KEYS = {
   PAGE_UP: 'PageUp',
   PAGE_DOWN: 'PageDown',
   INSERT: 'Insert',
-} as const
+} as const;
 
-export type SpecialKey = (typeof SPECIAL_KEYS)[keyof typeof SPECIAL_KEYS]
+export type SpecialKey = (typeof SPECIAL_KEYS)[keyof typeof SPECIAL_KEYS];
 
 export interface KeyCombination {
-  key: string | SpecialKey
-  ctrl?: boolean
-  shift?: boolean
-  alt?: boolean
-  meta?: boolean // Mac Command 鍵
+  key: string | SpecialKey;
+  ctrl?: boolean;
+  shift?: boolean;
+  alt?: boolean;
+  meta?: boolean; // Mac Command 鍵
 }
 
 export interface ShortcutOptions {
   /** 是否在輸入框中禁用（避免干擾使用者的打字） */
-  ignoreInput?: boolean
+  ignoreInput?: boolean;
   /** 是否阻止預設行為 */
-  preventDefault?: boolean
+  preventDefault?: boolean;
 
-  target?: string
+  target?: string;
 }
 
 export function useKeyboardShortcut(
@@ -58,85 +58,87 @@ export function useKeyboardShortcut(
   callback: (event: KeyboardEvent) => void,
   options: ShortcutOptions = {},
 ) {
-  const { ignoreInput = true, preventDefault = true, target } = options
+  const { ignoreInput = true, preventDefault = true, target } = options;
 
   // 解析快捷鍵，支援字串簡寫如 'ctrl+o'
   const parsed = ((s: KeyCombination | string): KeyCombination => {
     if (typeof s === 'string') {
-      const parts = s.toLowerCase().split('+')
+      const parts = s.toLowerCase().split('+');
       return {
         ctrl: parts.includes('ctrl'),
         shift: parts.includes('shift'),
         alt: parts.includes('alt'),
         meta: parts.includes('meta'),
         key: parts[parts.length - 1] || '',
-      }
+      };
     }
-    return s
-  }) (shortcut)
+    return s;
+  })(shortcut);
 
   const handler = (event: KeyboardEvent) => {
     // 檢查是否在輸入框中
     if (ignoreInput) {
-      const tag = (event.target as HTMLElement)?.tagName?.toLowerCase()
-      const isInput = ['input', 'textarea', 'select'].includes(tag)
-      const isContentEditable = (event.target as HTMLElement)?.isContentEditable
-      if (isInput || isContentEditable) return
+      const tag = (event.target as HTMLElement)?.tagName?.toLowerCase();
+      const isInput = ['input', 'textarea', 'select'].includes(tag);
+      const isContentEditable = (event.target as HTMLElement)?.isContentEditable;
+      if (isInput || isContentEditable) return;
     }
 
     // 檢查特定目標元素
     if (target) {
-      const targetEl = document.querySelector(target)
-      if (targetEl && !targetEl.contains(event.target as Node)) return
+      const targetEl = document.querySelector(target);
+      if (targetEl && !targetEl.contains(event.target as Node)) return;
     }
 
     // 檢查組合鍵
-    const ctrlMatch = (parsed.ctrl ?? false) === event.ctrlKey
-    const shiftMatch = (parsed.shift ?? false) === event.shiftKey
-    const altMatch = (parsed.alt ?? false) === event.altKey
-    const metaMatch = (parsed.meta ?? false) === event.metaKey
+    const ctrlMatch = (parsed.ctrl ?? false) === event.ctrlKey;
+    const shiftMatch = (parsed.shift ?? false) === event.shiftKey;
+    const altMatch = (parsed.alt ?? false) === event.altKey;
+    const metaMatch = (parsed.meta ?? false) === event.metaKey;
 
     // 檢查主鍵（不區分大小寫，但特殊按鍵需要精確比對）
-    let keyMatch: boolean
+    let keyMatch: boolean;
 
     // 如果是特殊按鍵（方向鍵、F1等），精確比對
-    const specialKeyValues = Object.values(SPECIAL_KEYS)
+    const specialKeyValues = Object.values(SPECIAL_KEYS);
     if (specialKeyValues.includes(parsed.key as SpecialKey)) {
-      keyMatch = parsed.key === event.key
+      keyMatch = parsed.key === event.key;
     } else {
       // 一般按鍵不區分大小寫
-      keyMatch = parsed.key.toLowerCase() === event.key.toLowerCase()
+      keyMatch = parsed.key.toLowerCase() === event.key.toLowerCase();
     }
 
     if (ctrlMatch && shiftMatch && altMatch && metaMatch && keyMatch) {
       if (preventDefault) {
-        event.preventDefault()
+        event.preventDefault();
       }
-      callback(event)
+      callback(event);
     }
-  }
+  };
 
   onMounted(() => {
-    document.addEventListener('keydown', handler)
-  })
+    document.addEventListener('keydown', handler);
+  });
 
   onUnmounted(() => {
-    document.removeEventListener('keydown', handler)
-  })
+    document.removeEventListener('keydown', handler);
+  });
 
   return {
     cleanup: () => {
-      document.removeEventListener('keydown', handler)
+      document.removeEventListener('keydown', handler);
     },
-    handler
-  }
+    handler,
+  };
 }
 
 export const isArrowKey = (key: string): boolean => {
-  return ([
-    SPECIAL_KEYS.ARROW_UP,
-    SPECIAL_KEYS.ARROW_DOWN,
-    SPECIAL_KEYS.ARROW_LEFT,
-    SPECIAL_KEYS.ARROW_RIGHT,
-  ] as SpecialKey[]).includes(key as SpecialKey)
-}
+  return (
+    [
+      SPECIAL_KEYS.ARROW_UP,
+      SPECIAL_KEYS.ARROW_DOWN,
+      SPECIAL_KEYS.ARROW_LEFT,
+      SPECIAL_KEYS.ARROW_RIGHT,
+    ] as SpecialKey[]
+  ).includes(key as SpecialKey);
+};

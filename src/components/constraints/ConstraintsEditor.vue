@@ -163,43 +163,43 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
-import type { FeasibilityReport, ForbiddenPairType } from '@/assets/wasm/alloc_algo'
-import type { Constraint } from '@/utils/JSONTypes'
-import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts'
+import { computed, reactive, ref, watch } from 'vue';
+import type { FeasibilityReport } from '@/assets/wasm/alloc_algo';
+import type { Constraint } from '@/utils/JSONTypes';
+import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts';
 
 const props = defineProps<{
-  visible: boolean
-  initialConfig?: string
-  names?: string[]
-  checkFeasibility?: (json: string) => FeasibilityReport | null
-}>()
+  visible: boolean;
+  initialConfig?: string;
+  names?: string[];
+  checkFeasibility?: (json: string) => FeasibilityReport | null;
+}>();
 
 const emit = defineEmits<{
-  apply: [json: string]
-  cancel: []
-}>()
+  apply: [json: string];
+  cancel: [];
+}>();
 
 /** 編輯器內部使用的約束模型：以統一 index 欄位代表 rowIdx / colIdx */
 interface EditableConstraint {
-  type: string
-  name?: string
-  name1?: string
-  name2?: string
-  index?: number
+  type: string;
+  name?: string;
+  name1?: string;
+  name2?: string;
+  index?: number;
 }
 
 interface EditorState {
-  allowFixedPoints: boolean
-  allowOriginalNeighbors: boolean
-  diagonalsAreNeighbors: boolean
-  customForbiddenPairs: ForbiddenPairType[]
-  constraints: EditableConstraint[]
+  allowFixedPoints: boolean;
+  allowOriginalNeighbors: boolean;
+  diagonalsAreNeighbors: boolean;
+  customForbiddenPairs: [string, string][];
+  constraints: EditableConstraint[];
 }
 
 interface TestResult {
-  status: 'ok' | 'unsatisfiable' | 'unknown' | 'no-grid'
-  message: string
+  status: 'ok' | 'unsatisfiable' | 'unknown' | 'no-grid';
+  message: string;
 }
 
 const CONSTRAINT_TYPES = [
@@ -209,7 +209,7 @@ const CONSTRAINT_TYPES = [
   { type: 'FORBIDCOL', label: '禁止列' },
   { type: 'FORBIDSHAREROW', label: '禁止同行' },
   { type: 'FORBIDSHARECOL', label: '禁止同列' },
-] as const
+] as const;
 
 /** 「斜對角視為相鄰」的獨立性說明（懸停 tooltip） */
 const DIAGONAL_NOTE =
@@ -217,13 +217,13 @@ const DIAGONAL_NOTE =
   '它定義「相鄰」的範圍：僅上下左右，或連同四個斜對角位置。\n' +
   '影響：\n' +
   '  ①「允許與原本的鄰座相鄰」的鄰座判定（原本坐斜對角者也算鄰座）；\n' +
-  '  ②「禁止配對」——被禁止配對的兩人坐在彼此的斜對角，同樣視為違反。'
+  '  ②「禁止配對」——被禁止配對的兩人坐在彼此的斜對角，同樣視為違反。';
 
 const isPositionConstraint = (type: string): boolean =>
-  type === 'FORCEROW' || type === 'FORBIDROW' || type === 'FORCECOL' || type === 'FORBIDCOL'
+  type === 'FORCEROW' || type === 'FORBIDROW' || type === 'FORCECOL' || type === 'FORBIDCOL';
 
 const indexLabel = (type: string): string =>
-  type === 'FORCEROW' || type === 'FORBIDROW' ? '行索引' : '列索引'
+  type === 'FORCEROW' || type === 'FORBIDROW' ? '行索引' : '列索引';
 
 const createEmptyState = (): EditorState => ({
   allowFixedPoints: true,
@@ -231,33 +231,33 @@ const createEmptyState = (): EditorState => ({
   diagonalsAreNeighbors: false,
   customForbiddenPairs: [],
   constraints: [],
-})
+});
 
 const toEditable = (c: Constraint): EditableConstraint => {
-  const type = String(c.type ?? '').toUpperCase()
+  const type = String(c.type ?? '').toUpperCase();
   if (isPositionConstraint(type)) {
-    const rowBased = type === 'FORCEROW' || type === 'FORBIDROW'
-    const idx = rowBased ? c.rowIdx : c.colIdx
-    return { type, name: c.name, index: typeof idx === 'number' ? idx + 1 : undefined }
+    const rowBased = type === 'FORCEROW' || type === 'FORBIDROW';
+    const idx = rowBased ? c.rowIdx : c.colIdx;
+    return { type, name: c.name, index: typeof idx === 'number' ? idx + 1 : undefined };
   }
-  return { type, name1: c.name1, name2: c.name2 }
-}
+  return { type, name1: c.name1, name2: c.name2 };
+};
 
 const toConstraint = (c: EditableConstraint): Constraint => {
   if (isPositionConstraint(c.type)) {
-    const rowBased = c.type === 'FORCEROW' || c.type === 'FORBIDROW'
-    const idx = typeof c.index === 'number' ? c.index - 1 : undefined
+    const rowBased = c.type === 'FORCEROW' || c.type === 'FORBIDROW';
+    const idx = typeof c.index === 'number' ? c.index - 1 : undefined;
     return rowBased
       ? { type: c.type, name: c.name, rowIdx: idx }
-      : { type: c.type, name: c.name, colIdx: idx }
+      : { type: c.type, name: c.name, colIdx: idx };
   }
-  return { type: c.type, name1: c.name1, name2: c.name2 }
-}
+  return { type: c.type, name1: c.name1, name2: c.name2 };
+};
 
 const parseConfig = (json: string): EditorState => {
   try {
-    const obj = JSON.parse(json) as Record<string, unknown>
-    const rawConstraints = obj.constraints as unknown[]
+    const obj = JSON.parse(json) as Record<string, unknown>;
+    const rawConstraints = obj.constraints as unknown[];
     return {
       allowFixedPoints: typeof obj.allowFixedPoints === 'boolean' ? obj.allowFixedPoints : true,
       allowOriginalNeighbors:
@@ -267,37 +267,37 @@ const parseConfig = (json: string): EditorState => {
       customForbiddenPairs: Array.isArray(obj.customForbiddenPairs)
         ? obj.customForbiddenPairs
             .filter((p): p is [unknown, unknown] => Array.isArray(p) && p.length >= 2)
-            .map((p) => [String(p[0]), String(p[1])] as ForbiddenPairType)
+            .map((p) => [String(p[0]), String(p[1])] as [string, string])
         : [],
       constraints: Array.isArray(rawConstraints)
         ? rawConstraints
             .filter((c): c is Constraint => !!c && typeof c === 'object')
             .map(toEditable)
         : [],
-    }
+    };
   } catch {
-    return createEmptyState()
+    return createEmptyState();
   }
-}
+};
 
-const state = reactive<EditorState>(parseConfig(props.initialConfig ?? '{}'))
-const testResult = ref<TestResult | null>(null)
-const gridNoteActive = ref(false)
+const state = reactive<EditorState>(parseConfig(props.initialConfig ?? '{}'));
+const testResult = ref<TestResult | null>(null);
+const gridNoteActive = ref(false);
 
 const toggleGridNote = () => {
-  gridNoteActive.value = !gridNoteActive.value
-}
+  gridNoteActive.value = !gridNoteActive.value;
+};
 
 watch(
   () => props.visible,
   (visible) => {
     if (visible) {
-      Object.assign(state, parseConfig(props.initialConfig ?? '{}'))
-      testResult.value = null
-      gridNoteActive.value = false
+      Object.assign(state, parseConfig(props.initialConfig ?? '{}'));
+      testResult.value = null;
+      gridNoteActive.value = false;
     }
   },
-)
+);
 
 const toJson = (): string =>
   JSON.stringify(
@@ -310,86 +310,88 @@ const toJson = (): string =>
     },
     null,
     2,
-  )
+  );
 
-const jsonPreview = computed(() => toJson())
+const jsonPreview = computed(() => toJson());
 
 const addPair = () => {
-  state.customForbiddenPairs.push(['', ''])
-}
+  state.customForbiddenPairs.push(['', '']);
+};
 
 const removePair = (index: number) => {
-  state.customForbiddenPairs.splice(index, 1)
-}
+  state.customForbiddenPairs.splice(index, 1);
+};
 
 const addConstraint = () => {
-  state.constraints.push({ type: 'FORCEROW', name: '', index: 1 })
-}
+  state.constraints.push({ type: 'FORCEROW', name: '', index: 1 });
+};
 
 const removeConstraint = (index: number) => {
-  state.constraints.splice(index, 1)
-}
+  state.constraints.splice(index, 1);
+};
 
 const handleApply = () => {
-  emit('apply', toJson())
-}
+  emit('apply', toJson());
+};
 
 const handleCancel = () => {
-  emit('cancel')
-}
+  emit('cancel');
+};
 
 const handleReset = () => {
-  if (!window.confirm('確定要清空所有約束設定嗎？此操作無法復原。')) return
-  testResult.value = null
-  Object.assign(state, createEmptyState())
-}
+  if (!window.confirm('確定要清空所有約束設定嗎？此操作無法復原。')) return;
+  testResult.value = null;
+  Object.assign(state, createEmptyState());
+};
 
 const LAYER_LABELS: Record<string, string> = {
   domain: '可行域檢查',
   matching: '完美匹配檢查',
   coloring: '著色檢查',
   ok: '',
-}
+};
 
 const handleTestConstraints = () => {
-  if (!props.checkFeasibility) return
+  if (!props.checkFeasibility) return;
 
-  const report = props.checkFeasibility(toJson())
+  const report = props.checkFeasibility(toJson());
   if (report === null) {
-    testResult.value = { status: 'no-grid', message: '尚未導入座位排佈，無法測試約束。' }
-    return
+    testResult.value = { status: 'no-grid', message: '尚未導入座位排佈，無法測試約束。' };
+    return;
   }
 
+  const layer = typeof report.layer === 'string' ? report.layer : '';
+
   if (report.status === 0) {
-    testResult.value = { status: 'ok', message: '約束可滿足，存在可行解。' }
+    testResult.value = { status: 'ok', message: '約束可滿足，存在可行解。' };
   } else if (report.status === 1) {
-    const layerNote = LAYER_LABELS[report.layer] ? `（${LAYER_LABELS[report.layer]}）` : ''
+    const layerNote = LAYER_LABELS[layer] ? `（${LAYER_LABELS[layer]}）` : '';
     testResult.value = {
       status: 'unsatisfiable',
       message: `約束無法同時滿足${layerNote}：${report.reason}`,
-    }
+    };
   } else {
     testResult.value = {
       status: 'unknown',
       message: `無法在預算內判定，建議放寬約束後再試。${report.reason}`,
-    }
+    };
   }
-}
+};
 
 const exportJson = () => {
-  const blob = new Blob([toJson()], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = 'constraints.json'
-  anchor.click()
-  URL.revokeObjectURL(url)
-}
+  const blob = new Blob([toJson()], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = 'constraints.json';
+  anchor.click();
+  URL.revokeObjectURL(url);
+};
 
 // Escape 關閉彈窗（輸入框中不觸發，避免干擾打字）
 useKeyboardShortcut({ key: 'Escape' }, () => {
-  if (props.visible) emit('cancel')
-})
+  if (props.visible) emit('cancel');
+});
 </script>
 
 <style scoped>

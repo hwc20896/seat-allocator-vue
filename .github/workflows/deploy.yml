@@ -21,13 +21,11 @@ jobs:
           actions-cache-folder: emsdk-cache
 
       - name: CMake configure & build WASM
+        working-directory: cpp
         run: |
-          which emcmake
           emcc -v
-          mkdir -p algo-build
-          cd algo-build
-          emcmake cmake ../cpp -DCMAKE_BUILD_TYPE=Release
-          cmake --build . -j$(nproc)
+          emcmake cmake --preset wasm
+          cmake --build --preset wasm -j$(nproc)
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

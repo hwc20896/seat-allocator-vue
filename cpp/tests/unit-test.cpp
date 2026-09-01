@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <bitset>
 
 #include "grid.hpp"
 #include "dynamic-bitset.hpp"
