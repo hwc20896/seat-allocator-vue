@@ -65,139 +65,139 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue';
 
-import AppHeader from '@/components/layout/AppHeader.vue'
-import AppFooter from '@/components/layout/AppFooter.vue'
-import PageNavigator from '@/components/controls/PageNavigator.vue'
-import ShuffleButton from '@/components/controls/ShuffleButton.vue'
-import SeatGrid from '@/components/grid/SeatGrid.vue'
-import ConstraintsEditor from '@/components/constraints/ConstraintsEditor.vue'
+import AppHeader from '@/components/layout/AppHeader.vue';
+import AppFooter from '@/components/layout/AppFooter.vue';
+import PageNavigator from '@/components/controls/PageNavigator.vue';
+import ShuffleButton from '@/components/controls/ShuffleButton.vue';
+import SeatGrid from '@/components/grid/SeatGrid.vue';
+import ConstraintsEditor from '@/components/constraints/ConstraintsEditor.vue';
 
-import { useWasm } from '@/composables/useWasm'
-import { useGridShuffle } from '@/composables/useGridShuffle'
-import { useColorConfig } from '@/composables/useColorConfig'
-import { useConstraintsConfig } from '@/composables/useConstraintsConfig'
-import { useFileIO } from '@/composables/useFileIO'
-import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts'
-import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard'
+import { useWasm } from '@/composables/useWasm';
+import { useGridShuffle } from '@/composables/useGridShuffle';
+import { useColorConfig } from '@/composables/useColorConfig';
+import { useConstraintsConfig } from '@/composables/useConstraintsConfig';
+import { useFileIO } from '@/composables/useFileIO';
+import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts';
+import { useUnsavedChangesGuard } from '@/composables/useUnsavedChangesGuard';
 
-import type { FeasibilityReport, Grid } from '@/assets/wasm/alloc_algo'
-import { Position } from '@/utils/Position.ts'
+import type { FeasibilityReport, Grid } from '@/assets/wasm/alloc_algo';
+import { Position } from '@/utils/Position.ts';
 
 // ==========================================
 // Composable Instances
 // ==========================================
-const wasm = useWasm()
-const constraints = useConstraintsConfig()
+const wasm = useWasm();
+const constraints = useConstraintsConfig();
 const grid = useGridShuffle(wasm.wasmModule, wasm.wasmReady, wasm.shufflerInstance, () =>
   constraints.buildWasmConfig(wasm.wasmModule.value),
-)
-const colorConfig = useColorConfig()
-const fileIO = useFileIO(wasm.wasmModule)
-const unsavedGuard = useUnsavedChangesGuard()
+);
+const colorConfig = useColorConfig();
+const fileIO = useFileIO(wasm.wasmModule);
+const unsavedGuard = useUnsavedChangesGuard();
 
-const appVersion = __APP_VERSION__
+const appVersion = __APP_VERSION__;
 
 // ==========================================
 // App-level State
 // ==========================================
-const statusText = ref('未導入')
-const isOriginal = ref(false)
-const isConstraintsEditorOpen = ref(false)
+const statusText = ref('未導入');
+const isOriginal = ref(false);
+const isConstraintsEditorOpen = ref(false);
 
 // Tagged cell for swap interaction
-const taggedCell = ref<Position | null>(null)
-const taggedRow = computed(() => taggedCell.value?.row ?? null)
-const taggedCol = computed(() => taggedCell.value?.col ?? null)
+const taggedCell = ref<Position | null>(null);
+const taggedRow = computed(() => taggedCell.value?.row ?? null);
+const taggedCol = computed(() => taggedCell.value?.col ?? null);
 
 // Choose which grid to render
 const renderedGrid = computed<Grid | null>(() => {
-  const module = wasm.wasmModule.value
-  if (!module) return null
-  if (!grid.isGridLoaded.value) return new module.Grid()
-  if (grid.showOriginal.value && grid.originalGrid.value) return grid.originalGrid.value
-  return grid.currentGrid.value
-})
+  const module = wasm.wasmModule.value;
+  if (!module) return null;
+  if (!grid.isGridLoaded.value) return new module.Grid();
+  if (grid.showOriginal.value && grid.originalGrid.value) return grid.originalGrid.value;
+  return grid.currentGrid.value;
+});
 
 // Unique names from the imported seating chart, for constraint editor autocomplete
 const allNames = computed(() => {
-  const original = grid.originalGrid.value
-  if (!original || original.empty()) return []
-  return [...new Set(Array.from(original.rawData()).filter((name) => name.trim() !== ''))]
-})
+  const original = grid.originalGrid.value;
+  if (!original || original.empty()) return [];
+  return [...new Set(Array.from(original.rawData()).filter((name) => name.trim() !== ''))];
+});
 
 // Test whether the given constraints JSON is satisfiable against the imported grid
 const checkFeasibility = (json: string): FeasibilityReport | null => {
-  const module = wasm.wasmModule.value
-  const original = grid.originalGrid.value
-  if (!module || !original || original.empty()) return null
-  const cfg = constraints.buildWasmConfigFromJson(module, json)
-  if (!cfg) return null
-  return module.checkFeasibility(original, cfg, true, 50_000)
-}
+  const module = wasm.wasmModule.value;
+  const original = grid.originalGrid.value;
+  if (!module || !original || original.empty()) return null;
+  const cfg = constraints.buildWasmConfigFromJson(module, json);
+  if (!cfg) return null;
+  return module.checkFeasibility(original, cfg, true, 50_000);
+};
 
 // ==========================================
 // Lifecycle
 // ==========================================
 onMounted(async () => {
-  const success = await wasm.initWasm()
+  const success = await wasm.initWasm();
   if (success) {
-    statusText.value = '系統就緒，等待導入配置...'
+    statusText.value = '系統就緒，等待導入配置...';
   } else {
-    statusText.value = 'WebAssembly 模組載入失敗'
+    statusText.value = 'WebAssembly 模組載入失敗';
   }
-})
+});
 
 // ==========================================
 // File Import / Export Handlers
 // ==========================================
 const handleCSVImport = async (file: File) => {
-  if (!wasm.wasmReady.value) return
+  if (!wasm.wasmReady.value) return;
   try {
-    const text = await fileIO.readTextFile(file)
-    const parsed = wasm.wasmModule.value!.Grid.fromCSV(text)
-    if (parsed.empty()) return
-    const success = grid.loadNewGrid(parsed)
-    if (!success) return
-    taggedCell.value = null
-    statusText.value = `已成功導入檔案：${file.name}`
-    unsavedGuard.markDirty()
+    const text = await fileIO.readTextFile(file);
+    const parsed = wasm.wasmModule.value!.Grid.fromCSV(text);
+    if (parsed.empty()) return;
+    const success = grid.loadNewGrid(parsed);
+    if (!success) return;
+    taggedCell.value = null;
+    statusText.value = `已成功導入檔案：${file.name}`;
+    unsavedGuard.markDirty();
   } catch (e) {
-    alert('檔案讀取失敗。')
-    console.error(e)
+    alert('檔案讀取失敗。');
+    console.error(e);
   }
-}
+};
 
 const handleXLSXImport = async (file: File) => {
-  if (!wasm.wasmReady.value) return
+  if (!wasm.wasmReady.value) return;
   try {
-    const parsed = await fileIO.parseXLSX(file)
-    if (parsed.empty()) return
-    const success = grid.loadNewGrid(parsed)
-    if (!success) return
-    taggedCell.value = null
-    statusText.value = `已成功導入檔案：${file.name}`
-    unsavedGuard.markDirty()
+    const parsed = await fileIO.parseXLSX(file);
+    if (parsed.empty()) return;
+    const success = grid.loadNewGrid(parsed);
+    if (!success) return;
+    taggedCell.value = null;
+    statusText.value = `已成功導入檔案：${file.name}`;
+    unsavedGuard.markDirty();
   } catch (e) {
-    alert('檔案讀取失敗。')
-    console.error(e)
+    alert('檔案讀取失敗。');
+    console.error(e);
   }
-}
+};
 
 const handleGridExport = async () => {
-  if (grid.currentGrid.value?.empty()) return
+  if (grid.currentGrid.value?.empty()) return;
 
   if (grid.showOriginal.value) {
-    const confirmChoice = confirm('這是原始名單，確定要導出嗎？\n\n建議先執行洗牌操作後再導出。')
-    if (!confirmChoice) return
+    const confirmChoice = confirm('這是原始名單，確定要導出嗎？\n\n建議先執行洗牌操作後再導出。');
+    if (!confirmChoice) return;
   }
 
-  const defaultFileName = `allocated_seats_page_${grid.currentIndex.value}`
+  const defaultFileName = `allocated_seats_page_${grid.currentIndex.value}`;
 
   if (!window.showSaveFilePicker) {
-    alert('您的瀏覽器不支援另存新檔功能，請更新瀏覽器或使用預設下載。')
-    return
+    alert('您的瀏覽器不支援另存新檔功能，請更新瀏覽器或使用預設下載。');
+    return;
   }
 
   try {
@@ -217,162 +217,162 @@ const handleGridExport = async () => {
           },
         },
       ],
-    })
+    });
 
-    const actualFileName = fileHandle.name
-    const writable = await fileHandle.createWritable()
+    const actualFileName = fileHandle.name;
+    const writable = await fileHandle.createWritable();
 
     if (actualFileName.endsWith('.xlsx')) {
-      const excelData = fileIO.generateXLSXBuffer(grid.currentGrid.value!)
-      await writable.write(excelData)
-      statusText.value = `已成功匯出 Excel：${actualFileName}`
+      const excelData = fileIO.generateXLSXBuffer(grid.currentGrid.value!);
+      await writable.write(excelData);
+      statusText.value = `已成功匯出 Excel：${actualFileName}`;
     } else if (actualFileName.endsWith('.csv')) {
-      const csvData = grid.currentGrid.value!.toCSVString()
-      await writable.write(csvData)
-      statusText.value = `已成功匯出 CSV：${actualFileName}`
+      const csvData = grid.currentGrid.value!.toCSVString();
+      await writable.write(csvData);
+      statusText.value = `已成功匯出 CSV：${actualFileName}`;
     }
 
-    await writable.close()
-    unsavedGuard.markClean()
+    await writable.close();
+    unsavedGuard.markClean();
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'AbortError') {
-      statusText.value = '已取消導出。'
+      statusText.value = '已取消導出。';
     } else {
-      console.error('導出失敗：', err)
-      statusText.value = '導出失敗，請檢查權限或控制台錯誤。'
+      console.error('導出失敗：', err);
+      statusText.value = '導出失敗，請檢查權限或控制台錯誤。';
     }
   }
-}
+};
 
 // ==========================================
 // Color Configuration Handlers
 // ==========================================
 const handleColorImport = async (file: File) => {
   try {
-    const text = await fileIO.readTextFile(file)
-    const success = colorConfig.loadColors(text)
-    if (!success) return
-    statusText.value = `顏色配置載入成功。`
-    unsavedGuard.markDirty()
+    const text = await fileIO.readTextFile(file);
+    const success = colorConfig.loadColors(text);
+    if (!success) return;
+    statusText.value = `顏色配置載入成功。`;
+    unsavedGuard.markDirty();
   } catch {
-    alert('JSON 顏色配置解析失敗。')
+    alert('JSON 顏色配置解析失敗。');
   }
-}
+};
 
 const handleClearColors = () => {
-  colorConfig.clearColors()
-  statusText.value = `顏色配置已卸載。`
-}
+  colorConfig.clearColors();
+  statusText.value = `顏色配置已卸載。`;
+};
 
 // ==========================================
 // Constraints Configuration Handlers
 // ==========================================
 const handleConstraintsImport = async (file: File) => {
   try {
-    const text = await fileIO.readTextFile(file)
-    const success = constraints.loadConstraints(text)
+    const text = await fileIO.readTextFile(file);
+    const success = constraints.loadConstraints(text);
     if (success) {
-      statusText.value = `算法約束載入成功：${file.name}。`
+      statusText.value = `算法約束載入成功：${file.name}。`;
 
       // Try to apply constraints immediately if wasm is ready
       if (wasm.wasmReady.value && typeof grid.applyConfig === 'function') {
-        const cfg = constraints.buildWasmConfig(wasm.wasmModule.value)
-        const applied = grid.applyConfig(cfg)
+        const cfg = constraints.buildWasmConfig(wasm.wasmModule.value);
+        const applied = grid.applyConfig(cfg);
         if (await applied) {
-          statusText.value += ' 已套用約束。'
+          statusText.value += ' 已套用約束。';
         } else {
-          statusText.value += ' 套用約束失敗，請重新導入座位配置或手動洗牌。'
+          statusText.value += ' 套用約束失敗，請重新導入座位配置或手動洗牌。';
         }
       } else {
-        statusText.value += ' 請重新導入座位配置或洗牌以套用新約束。'
+        statusText.value += ' 請重新導入座位配置或洗牌以套用新約束。';
       }
     }
   } catch {
-    alert('JSON 算法約束檔案格式錯誤。')
+    alert('JSON 算法約束檔案格式錯誤。');
   }
-}
+};
 
 const handleResetConstraints = () => {
-  constraints.resetConstraints()
-  statusText.value = `約束已重設。已還原為基礎隨機分配算法。`
-}
+  constraints.resetConstraints();
+  statusText.value = `約束已重設。已還原為基礎隨機分配算法。`;
+};
 
 const handleConstraintsApply = async (json: string) => {
-  const success = constraints.loadConstraints(json)
-  if (!success) return
+  const success = constraints.loadConstraints(json);
+  if (!success) return;
 
-  statusText.value = `約束已更新。`
+  statusText.value = `約束已更新。`;
 
   // Apply constraints immediately if wasm is ready
   if (wasm.wasmReady.value && typeof grid.applyConfig === 'function') {
-    const cfg = constraints.buildWasmConfig(wasm.wasmModule.value)
-    const applied = await grid.applyConfig(cfg)
+    const cfg = constraints.buildWasmConfig(wasm.wasmModule.value);
+    const applied = await grid.applyConfig(cfg);
     if (applied) {
-      statusText.value += ' 已套用約束。'
+      statusText.value += ' 已套用約束。';
     } else {
-      statusText.value += ' 套用約束失敗，請重新導入座位配置或手動洗牌。'
+      statusText.value += ' 套用約束失敗，請重新導入座位配置或手動洗牌。';
     }
   } else {
-    statusText.value += ' 請重新導入座位配置或洗牌以套用新約束。'
+    statusText.value += ' 請重新導入座位配置或洗牌以套用新約束。';
   }
 
-  isConstraintsEditorOpen.value = false
-}
+  isConstraintsEditorOpen.value = false;
+};
 
 // ==========================================
 // Shuffle Handler
 // ==========================================
 const handleShuffle = async () => {
-  taggedCell.value = null
-  const success = await grid.beginShuffleAnimation()
-  if (!success) return
-  statusText.value = `洗牌完成，已生成第 ${grid.currentIndex.value} 次分配結果。`
-  unsavedGuard.markDirty()
-}
+  taggedCell.value = null;
+  const success = await grid.beginShuffleAnimation();
+  if (!success) return;
+  statusText.value = `洗牌完成，已生成第 ${grid.currentIndex.value} 次分配結果。`;
+  unsavedGuard.markDirty();
+};
 
 // ==========================================
 // Navigation Handlers
 // ==========================================
 const handleNavigate = (step: number) => {
-  grid.navigatePage(step)
-  taggedCell.value = null
-}
+  grid.navigatePage(step);
+  taggedCell.value = null;
+};
 
 const handleToggleOriginal = () => {
-  grid.toggleOriginal()
-  taggedCell.value = null
-  isOriginal.value = !isOriginal.value
-}
+  grid.toggleOriginal();
+  taggedCell.value = null;
+  isOriginal.value = !isOriginal.value;
+};
 
 // ==========================================
 // Cell Interaction (Click to Swap)
 // ==========================================
 const handleCellClick = (position: Position) => {
-  if (grid.showOriginal.value || grid.isShuffling.value) return
+  if (grid.showOriginal.value || grid.isShuffling.value) return;
 
   if (!taggedCell.value) {
-    taggedCell.value = position
-    statusText.value = `已標記單元格 ${position.toString(true)}，再次點擊其他格子即可進行位置交換。`
+    taggedCell.value = position;
+    statusText.value = `已標記單元格 ${position.toString(true)}，再次點擊其他格子即可進行位置交換。`;
   } else if (taggedCell.value?.equals(position)) {
-    taggedCell.value = null
-    statusText.value = `已取消標記。`
+    taggedCell.value = null;
+    statusText.value = `已取消標記。`;
   } else {
-    const tPos = taggedCell.value
-    grid.swapCells(tPos, position)
-    statusText.value = `已手動交換單元格：${tPos} ⟺ ${position}`
-    taggedCell.value = null
-    unsavedGuard.markDirty()
+    const tPos = taggedCell.value;
+    grid.swapCells(tPos, position);
+    statusText.value = `已手動交換單元格：${tPos} ⟺ ${position}`;
+    taggedCell.value = null;
+    unsavedGuard.markDirty();
   }
-}
+};
 
 const isCellSwapped = (pos: Position): boolean => {
-  return grid.isCellManuallyModified(pos)
-}
+  return grid.isCellManuallyModified(pos);
+};
 
 useKeyboardShortcut('enter', () => {
-  console.debug('Enter pressed')
-  handleShuffle()
-})
+  console.debug('Enter pressed');
+  handleShuffle();
+});
 </script>
 
 <style>

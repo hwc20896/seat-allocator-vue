@@ -1,39 +1,39 @@
-import { ref, shallowRef, onBeforeUnmount } from 'vue'
-import initWasmModule from '@/assets/wasm/alloc_algo.js'
-import type { GridShuffler, MainModule } from '@/assets/wasm/alloc_algo'
+import { ref, shallowRef, onBeforeUnmount } from 'vue';
+import initWasmModule from '@/assets/wasm/alloc_algo.js';
+import type { GridShuffler, MainModule } from '@/assets/wasm/alloc_algo';
 
-const wasmModule = shallowRef<MainModule | null>(null) //  const auto wasmModule = shallowRef<ModuleExports*>(nullptr);
+const wasmModule = shallowRef<MainModule | null>(null); //  const auto wasmModule = shallowRef<ModuleExports*>(nullptr);
 
-const shufflerInstance = shallowRef<GridShuffler | null>(null)
-const wasmReady = ref(false)
+const shufflerInstance = shallowRef<GridShuffler | null>(null);
+const wasmReady = ref(false);
 
 export function useWasm() {
   const initWasm = async () => {
     try {
       wasmModule.value = await initWasmModule({
         locateFile: (path: string) => {
-          if (path.endsWith('.wasm')) return `${import.meta.env.BASE_URL}${path}`
-          return path
+          if (path.endsWith('.wasm')) return `${import.meta.env.BASE_URL}${path}`;
+          return path;
         },
-      })
-      wasmReady.value = true
-      return true
+      });
+      wasmReady.value = true;
+      return true;
     } catch (error) {
-      console.error('WebAssembly 模組載入失敗:', error)
-      return false
+      console.error('WebAssembly 模組載入失敗:', error);
+      return false;
     }
-  }
+  };
 
   const cleanup = () => {
     if (shufflerInstance.value) {
-      shufflerInstance.value.delete()
-      shufflerInstance.value = null
+      shufflerInstance.value.delete();
+      shufflerInstance.value = null;
     }
-  }
+  };
 
   onBeforeUnmount(() => {
-    cleanup()
-  })
+    cleanup();
+  });
 
   return {
     wasmModule,
@@ -41,5 +41,5 @@ export function useWasm() {
     wasmReady,
     initWasm,
     cleanup,
-  }
+  };
 }

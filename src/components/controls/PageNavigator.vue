@@ -35,51 +35,51 @@
 </template>
 
 <script setup lang="ts">
-import { useKeyboardShortcut, SPECIAL_KEYS } from '@/composables/useKeyboardShortcuts'
+import { useKeyboardShortcut, SPECIAL_KEYS } from '@/composables/useKeyboardShortcuts';
 
 const props = defineProps<{
-  pageLabel: string
-  currentIndex: number
-  totalPages: number
-  isShuffling: boolean
-  isGridLoaded: boolean
-  showOriginal: boolean
-}>()
+  pageLabel: string;
+  currentIndex: number;
+  totalPages: number;
+  isShuffling: boolean;
+  isGridLoaded: boolean;
+  showOriginal: boolean;
+}>();
 
 const emit = defineEmits<{
-  navigate: [step: number]
-  'toggle-original': []
-}>()
+  navigate: [step: number];
+  'toggle-original': [];
+}>();
 
 useKeyboardShortcut(
   { key: SPECIAL_KEYS.PAGE_UP },
   () => {
-    console.debug('Page Up triggered')
-    if (props.currentIndex <= 1 || props.isShuffling) return
-    emit('navigate', -1)
+    console.debug('Page Up triggered');
+    if (props.currentIndex <= 1 || props.isShuffling) return;
+    emit('navigate', -1);
   },
   { preventDefault: true },
-)
+);
 
 useKeyboardShortcut(
   { key: SPECIAL_KEYS.PAGE_DOWN },
   () => {
-    console.debug('Page Down triggered')
-    if (props.currentIndex >= props.totalPages || props.isShuffling) return
-    emit('navigate', 1)
+    console.debug('Page Down triggered');
+    if (props.currentIndex >= props.totalPages || props.isShuffling) return;
+    emit('navigate', 1);
   },
   { preventDefault: true },
-)
+);
 
 useKeyboardShortcut(
   { key: SPECIAL_KEYS.HOME },
   () => {
-    console.debug('Home Key triggered')
-    if (!props.isGridLoaded || props.isShuffling || props.totalPages === 0) return
-    emit('toggle-original')
+    console.debug('Home Key triggered');
+    if (!props.isGridLoaded || props.isShuffling || props.totalPages === 0) return;
+    emit('toggle-original');
   },
   { preventDefault: true },
-)
+);
 </script>
 
 <style scoped>

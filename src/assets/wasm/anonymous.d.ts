@@ -1,9 +1,9 @@
 interface Window {
   showSaveFilePicker?(options?: {
-    suggestedName?: string
+    suggestedName?: string;
     types?: Array<{
-      description?: string
-      accept: Record<string, string[]>
-    }>
-  }): Promise<FileSystemFileHandle>
+      description?: string;
+      accept: Record<string, string[]>;
+    }>;
+  }): Promise<FileSystemFileHandle>;
 }

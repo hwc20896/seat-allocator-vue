@@ -48,23 +48,23 @@
 </template>
 
 <script setup lang="ts">
-import GridCell from './GridCell.vue'
-import type { Grid } from '@/assets/wasm/alloc_algo'
-import { Position } from '@/utils/Position.ts'
+import GridCell from './GridCell.vue';
+import type { Grid } from '@/assets/wasm/alloc_algo';
+import { Position } from '@/utils/Position.ts';
 
 defineProps<{
-  grid: Grid | null
-  isShuffling: boolean
-  taggedRow: number | null
-  taggedCol: number | null
-  getCellColor: (text: string) => string
-  isCellSwapped: (position: Position) => boolean
-  isCurrentlyOriginal: boolean
-}>()
+  grid: Grid | null;
+  isShuffling: boolean;
+  taggedRow: number | null;
+  taggedCol: number | null;
+  getCellColor: (text: string) => string;
+  isCellSwapped: (position: Position) => boolean;
+  isCurrentlyOriginal: boolean;
+}>();
 
 defineEmits<{
-  'cell-click': [Position]
-}>()
+  'cell-click': [Position];
+}>();
 </script>
 
 <style scoped>
