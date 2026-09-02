@@ -114,7 +114,7 @@ export function useGridShuffle(
     };
 
     try {
-      const shuffleResult = await shufflerInstance.value.shuffle();
+      const shuffleResult = shufflerInstance.value.shuffle();
 
       if (!shuffleResult.success) {
         console.warn(`Shuffle failed: ${shuffleResult.error}`);
