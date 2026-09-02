@@ -1,10 +1,10 @@
 #pragma once
 
-#include <vector>
-#include <string>
-#include <stdexcept>
-#include <ostream>
 #include <algorithm>
+#include <ostream>
+#include <stdexcept>
+#include <string>
+#include <vector>
 
 class Grid final {
     public /* Statics */:
@@ -58,10 +58,14 @@ class Grid final {
         auto end() noexcept { return data_.end(); }
 
         [[nodiscard]]
-        auto begin() const noexcept { return data_.begin(); }
+        auto begin() const noexcept {
+            return data_.begin();
+        }
 
         [[nodiscard]]
-        auto end() const noexcept { return data_.end(); }
+        auto end() const noexcept {
+            return data_.end();
+        }
 
         [[nodiscard]]
         Grid clone() const noexcept;
@@ -72,6 +76,7 @@ class Grid final {
         constexpr auto operator<=>(const Grid&) const = default;
 
         friend std::ostream& operator<<(std::ostream& os, const Grid& grid);
+
     private:
         int rows_ = 0;
         int cols_ = 0;
@@ -128,9 +133,7 @@ Grid Grid::fromCSVString(const std::string& csvString) {
                 if (cols == -1) {
                     cols = static_cast<int>(row.size());
                 } else if (static_cast<int>(row.size()) != cols) {
-                    throw std::invalid_argument(
-                        "Grid::fromCSVString: inconsistent column count."
-                    );
+                    throw std::invalid_argument("Grid::fromCSVString: inconsistent column count.");
                 }
 
 #ifdef KEEP_DEBUG_NOTE
@@ -159,9 +162,7 @@ Grid Grid::fromCSVString(const std::string& csvString) {
         if (cols == -1) {
             cols = static_cast<int>(row.size());
         } else if (static_cast<int>(row.size()) != cols) {
-            throw std::invalid_argument(
-                "Grid::fromCSVString: inconsistent column count."
-            );
+            throw std::invalid_argument("Grid::fromCSVString: inconsistent column count.");
         }
 
 #if __cpp_lib_containers_ranges >= 202202L
@@ -176,16 +177,12 @@ Grid Grid::fromCSVString(const std::string& csvString) {
     return Grid(rows, cols, std::move(data));
 }
 
-Grid::Grid(const int row, const int col)
-    : rows_(row), cols_(col), data_(static_cast<size_t>(row) * col) {}
+Grid::Grid(const int row, const int col) : rows_(row), cols_(col), data_(static_cast<size_t>(row) * col) {}
 
 Grid::Grid(const int row, const int col, std::vector<std::string> data)
-    : rows_(row), cols_(col), data_(std::move(data))
-{
+    : rows_(row), cols_(col), data_(std::move(data)) {
     if (data_.size() != static_cast<size_t>(rows_) * cols_) {
-        throw std::invalid_argument(
-            "Grid size mismatch"
-        );
+        throw std::invalid_argument("Grid size mismatch");
     }
 }
 
@@ -197,8 +194,7 @@ const std::string& Grid::operator[](const int row, const int col) const {
 }
 
 const std::string& Grid::operator[](const int index) const {
-    if (index < 0 || index >= this->size())
-        throw std::out_of_range("Grid: Index Out of range");
+    if (index < 0 || index >= this->size()) throw std::out_of_range("Grid: Index Out of range");
     return data_[index];
 }
 
@@ -210,8 +206,7 @@ std::string& Grid::operator[](const int row, const int col) {
 }
 
 std::string& Grid::operator[](const int index) {
-    if (index < 0 || index >= this->size())
-        throw std::out_of_range("Grid: Index Out of range");
+    if (index < 0 || index >= this->size()) throw std::out_of_range("Grid: Index Out of range");
     return data_[index];
 }
 
@@ -256,22 +251,22 @@ Grid Grid::clone() const noexcept {
 }
 
 std::string Grid::toCSVString() const {
-    if (data_.empty())
-        return "";
+    if (data_.empty()) return "";
 
     std::string result;
     for (int r = 0; r < rows_; ++r) {
         for (int c = 0; c < cols_; ++c) {
             const std::string& cell = (*this)[r, c];
 
-            if (std::ranges::any_of(
-                std::array{',', '"', '\n'},
-                [&cell](const char ch){return cell.contains(ch);})  //  needs quoting
+            if (std::ranges::any_of(std::array{',', '"', '\n'},
+                                    [&cell](const char ch) { return cell.contains(ch); })  //  needs quoting
             ) {
                 result += '"';
                 for (const char ch : cell) {
-                    if (ch == '"') result += "\"\"";
-                    else result += ch;
+                    if (ch == '"')
+                        result += "\"\"";
+                    else
+                        result += ch;
                 }
                 result += '"';
             } else {

@@ -54,8 +54,7 @@ static void BM_Shuffle(benchmark::State& state) {
     shuffler.setConfig(constrainedConfig);
     if constexpr (Mode == AnnealingMode::DefaultConfig) {
         shuffler.setAnnealingConfig(AnnealingConfig{});
-    }
-    else if constexpr (Mode == AnnealingMode::TunedConfig) {
+    } else if constexpr (Mode == AnnealingMode::TunedConfig) {
         shuffler.setAnnealingConfig(tunedAnnealingConfig);
     }
     shuffler.setGrid(grid);
@@ -70,8 +69,7 @@ static void BM_Shuffle(benchmark::State& state) {
             total_steps += result.value().doneAtStep;
             total_algo_us += result.value().tookMUS;
             successful_runs++;
-        }
-        else {
+        } else {
             error_count++;
         }
     }
