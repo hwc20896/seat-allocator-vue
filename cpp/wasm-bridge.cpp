@@ -143,7 +143,7 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
                 report.error = res.error();
             }
             return report;
-        }), async{})
+        }))
         .function("validateResult", &GridShuffler::validateResult)
         .function("clearShuffledGrids", &GridShuffler::clearShuffledGrids);
 
