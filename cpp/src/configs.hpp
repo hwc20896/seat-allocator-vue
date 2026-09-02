@@ -2,8 +2,8 @@
 
 #include <vector>
 #include <string>
-#include <compare>
 #include "constraints.hpp"
+#include "utils.hpp"
 
 struct AnnealingConfig {
     double initialTemperature = 5.0;
@@ -11,7 +11,7 @@ struct AnnealingConfig {
     int maxSteps = 2'000'000;
     int maxAttempts = 5;
 
-    constexpr auto operator<=>(const AnnealingConfig&) const noexcept = default;
+    CONSTEXPR_DEFAULT_EQUALITY(AnnealingConfig)
 };
 
 struct PenaltyWeights {
@@ -21,7 +21,7 @@ struct PenaltyWeights {
     int customForbidden = 1000;
     int forbidShare = 1000;
 
-    constexpr auto operator<=>(const PenaltyWeights&) const noexcept = default;
+    CONSTEXPR_DEFAULT_EQUALITY(PenaltyWeights)
 };
 
 struct ShuffleConfig {
@@ -33,13 +33,12 @@ struct ShuffleConfig {
 
     constexpr auto operator<=>(const ShuffleConfig&) const noexcept = default;
 
+    CONSTEXPR_DEFAULT_EQUALITY(ShuffleConfig)
+
     constexpr ShuffleConfig() = default;
 
-    constexpr ShuffleConfig(const ShuffleConfig&) = default;
-    constexpr ShuffleConfig(ShuffleConfig&&) = default;
-
-    constexpr ShuffleConfig& operator=(const ShuffleConfig&) = default;
-    constexpr ShuffleConfig& operator=(ShuffleConfig&&) = default;
+    CONSTEXPR_DEFAULT_COPY(ShuffleConfig)
+    CONSTEXPR_DEFAULT_MOVE(ShuffleConfig)
 
     constexpr ShuffleConfig& setAllowFixedPoints(const bool _allow_fixed_points) {
         this->allowFixedPoints = _allow_fixed_points;
