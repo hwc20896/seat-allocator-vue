@@ -131,6 +131,7 @@ defineEmits<{
 .index-corner {
   border: none;
   background: transparent;
+  width: 2.5rem;
 }
 
 .grid-displayer {
@@ -138,6 +139,7 @@ defineEmits<{
   border-collapse: separate;
   border-spacing: 12px;
   table-layout: fixed;
+  width: 100%;
 }
 
 .grid-displayer td.grid-cell {

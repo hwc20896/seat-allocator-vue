@@ -1,7 +1,7 @@
 <template>
   <div class="cell-content" :class="contentClass" @click="$emit('click')">
     <span class="cell-icon" v-if="text.length > 0">🪑</span>
-    <span class="cell-text" :style="cellStyle">{{ text || '空位' }}</span>
+    <span class="cell-text" :style="cellStyle" :title="text">{{ text || '空位' }}</span>
   </div>
 </template>
 
@@ -86,6 +86,10 @@ const cellStyle = computed(() => ({
   font-weight: 600;
   color: var(--text-dark);
   letter-spacing: 1px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Empty state */

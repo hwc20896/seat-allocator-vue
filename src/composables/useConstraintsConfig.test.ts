@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useConstraintsConfig } from './useConstraintsConfig';
+import type { ImportedConstraint } from '@/utils/JSONTypes.ts';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -69,7 +70,7 @@ describe('useConstraintsConfig', () => {
       }),
     );
 
-    const cfg = buildWasmConfig({ ShuffleConfig: FakeShuffleConfig } as never);
+    buildWasmConfig({ ShuffleConfig: FakeShuffleConfig } as never);
     expect(spies.forbidRow).toHaveBeenCalledWith('王小明', 0);
     expect(spies.forceCol).toHaveBeenCalledWith('陳小美', 1);
     expect(spies.forbidCol).toHaveBeenCalledWith('林小華', 2);
@@ -154,9 +155,13 @@ describe('useConstraintsConfig', () => {
       allowFixedPoints: true,
       allowOriginalNeighbors: true,
       diagonalsAreNeighbors: false,
+      crossAisleAreNeighbors: true,
+      enableBuddyMatching: false,
+      doBuddyRotate: true,
       customForbiddenPairs: [],
       constraints: [],
-    });
+      buddyGroups: [],
+    } satisfies ImportedConstraint);
     expect(parsedConfig.value).toBeNull();
   });
 

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import type { FeasibilityReport } from '@/assets/wasm/alloc_algo';
 import ConstraintsEditor from './ConstraintsEditor.vue';
+import type { ImportedConstraint } from '@/utils/JSONTypes.ts';
 
 const mounted: VueWrapper[] = [];
 
@@ -133,9 +134,13 @@ describe('ConstraintsEditor', () => {
       allowFixedPoints: true,
       allowOriginalNeighbors: true,
       diagonalsAreNeighbors: false,
+      crossAisleAreNeighbors: true,
+      enableBuddyMatching: false,
+      doBuddyRotate: true,
       customForbiddenPairs: [['張三', '李四']],
       constraints: [{ type: 'FORCEROW', name: '王小明', rowIdx: 2 }],
-    });
+      buddyGroups: [],
+    } satisfies ImportedConstraint);
   });
 
   it('從 initialConfig 的 0-based 索引轉為介面 1-based 顯示', () => {
@@ -321,5 +326,32 @@ describe('ConstraintsEditor', () => {
     const wrapper = mountEditor();
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }));
     expect(wrapper.emitted('cancel')).toBeUndefined();
+  });
+
+  it('issue 6 欄位從 initialConfig 載入並於套用時保留', async () => {
+    const wrapper = mountEditor({
+      visible: true,
+      initialConfig: JSON.stringify({
+        crossAisleAreNeighbors: false,
+        enableBuddyMatching: true,
+        doBuddyRotate: false,
+        buddyGroups: [['A1', 'A2'], ['B1']],
+      }),
+    });
+
+    const checkboxes = wrapper.findAll('.switch-row input[type="checkbox"]');
+    expect((checkboxes[3]!.element as HTMLInputElement).checked).toBe(false); // crossAisle
+    expect((checkboxes[4]!.element as HTMLInputElement).checked).toBe(true); // enableBuddy
+    expect((checkboxes[5]!.element as HTMLInputElement).checked).toBe(false); // doBuddyRotate
+    expect(wrapper.findAll('.buddy-row')).toHaveLength(3);
+
+    await wrapper.find('.apply-btn').trigger('click');
+    const json = JSON.parse(wrapper.emitted('apply')![0]![0] as string);
+    expect(json).toMatchObject({
+      crossAisleAreNeighbors: false,
+      enableBuddyMatching: true,
+      doBuddyRotate: false,
+      buddyGroups: [['A1', 'A2'], ['B1']],
+    });
   });
 });

@@ -13,4 +13,8 @@ export interface ImportedConstraint {
   diagonalsAreNeighbors: boolean;
   customForbiddenPairs: [string, string][];
   constraints: Constraint[];
+  crossAisleAreNeighbors: boolean;
+  enableBuddyMatching: boolean;
+  doBuddyRotate: boolean;
+  buddyGroups?: string[][]; //  In algorithm, it is [string[], string[]], which is actually string[][2].
 }
