@@ -11,7 +11,10 @@ find_package(GTest CONFIG REQUIRED)
 enable_testing()
 
 add_executable(unit-tests
-    unit-test.cpp
+    grid.test.cpp
+    dynamic-bitset.test.cpp
+    shuffler.test.cpp
+    feasibility.test.cpp
 )
 
 target_include_directories(unit-tests PRIVATE

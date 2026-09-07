@@ -1,315 +1,11 @@
 #include <gtest/gtest.h>
 
-#include <bitset>
-
-#include "configs.hpp"
-#include "dynamic-bitset.hpp"
-#include "feasibility.hpp"
-#include "grid.hpp"
 #include "shuffler.hpp"
-
-//   -------------------------------------------------------
-//   Grid CSV
-//   -------------------------------------------------------
-
-TEST(GridCSV, BasicRoundTrip) {
-    const auto g = Grid::fromCSVString("A,B\nC,D\n");
-    EXPECT_EQ(g.rowCount(), 2);
-    EXPECT_EQ(g.colCount(), 2);
-    EXPECT_EQ(g.toCSVString(), "A,B\nC,D\n");
-}
-
-TEST(GridCSV, QuotedFieldWithCommaAndQuote) {
-    const auto g = Grid::fromCSVString("A,\"B,C\"\n\"He said \"\"hi\"\"\",D\n");
-    EXPECT_EQ((g[0, 1]), "B,C");
-    EXPECT_EQ((g[1, 0]), "He said \"hi\"");
-    EXPECT_EQ(g.toCSVString(), "A,\"B,C\"\n\"He said \"\"hi\"\"\",D\n");
-}
-
-TEST(GridCSV, InconsistentColumnsThrows) {
-    EXPECT_THROW(Grid::fromCSVString("A,B\nC\n"), std::invalid_argument);
-}
-
-TEST(GridCSV, EmptyStringGivesEmptyGrid) {
-    EXPECT_TRUE(Grid::fromCSVString("").empty());
-}
-
-TEST(GridCSV, TrailingComma) {
-    const auto g = Grid::fromCSVString("A,B,\n");
-    EXPECT_EQ(g.rowCount(), 1);
-    EXPECT_EQ((g[0, 2]), "");
-}
-
-TEST(GridCSV, CRLFHandling) {
-    const auto g = Grid::fromCSVString("A,B\r\nC,D\r\n");
-    EXPECT_EQ(g.rowCount(), 2);
-    EXPECT_EQ((g[1, 1]), "D");
-}
-
-//   -------------------------------------------------------
-//   Grid Accessibility
-//   -------------------------------------------------------
-
-TEST(GridAccess, SetGetAndOperators) {
-    Grid g(2, 3);
-    g.set(1, 2, "X");
-    EXPECT_EQ(g.get(1, 2), "X");
-    EXPECT_EQ((g[1, 2]), "X");
-    EXPECT_EQ(g[5], "X");  // 1*3+2 = 5
-    g[0] = "Y";
-    EXPECT_EQ((g[0, 0]), "Y");
-}
-
-TEST(GridAccess, OutOfRangeThrows) {
-    Grid g(2, 2);
-    EXPECT_THROW((g[2, 0]), std::out_of_range);
-    EXPECT_THROW((g[0, -1]), std::out_of_range);
-    EXPECT_THROW(g[4], std::out_of_range);
-    EXPECT_THROW((void)g.get(1, 2), std::out_of_range);
-}
-
-TEST(GridAccess, CloneIsIndependent) {
-    Grid g = Grid::fromCSVString("A,B\nC,D\n");
-    auto c = g.clone();
-    c.set(0, 0, "Z");
-    EXPECT_EQ((g[0, 0]), "A");
-    EXPECT_NE(g, c);
-}
-
-TEST(GridAccess, NegativeSingleIndexThrows) {
-    Grid g(2, 2);
-    EXPECT_THROW((void)g[-1], std::out_of_range);
-    const Grid& cg = g;
-    EXPECT_THROW((void)cg[-1], std::out_of_range);
-}
-
-//   -------------------------------------------------------
-//   Dynamic Bitsets
-//   -------------------------------------------------------
-
-TEST(DynamicBitset, SetTestReset) {
-    DynamicBitset bs(100);
-    EXPECT_FALSE(bs.test(50));
-    bs.set(50, true);
-    EXPECT_TRUE(bs.test(50));
-    bs.reset();
-    EXPECT_FALSE(bs.test(50));
-    EXPECT_EQ(bs.size(), 100);
-}
-
-TEST(DynamicBitset, OutOfRangeThrows) {
-    DynamicBitset bs(10);
-
-    EXPECT_THROW(bs.set(10, true), std::out_of_range);
-    EXPECT_THROW((void)bs.test(10), std::out_of_range);
-
-    EXPECT_THROW((void)bs.test(63), std::out_of_range);
-}
-
-TEST(DynamicBitset, ValidBoundaryWorks) {
-    DynamicBitset bs(10);
-    bs.set(9, true);
-    EXPECT_TRUE(bs.test(9));
-    EXPECT_FALSE(bs.test(0));
-}
-
-TEST(DynamicBitset, CrossWordOperations) {
-    DynamicBitset bs(200);
-    bs.set(0, true);
-    bs.set(63, true);
-    bs.set(64, true);   //  1st bit of 2nd word
-    bs.set(127, true);  //  Last bit of 2nd word
-    bs.set(199, true);  //  Last bit of last word
-
-    EXPECT_TRUE(bs.test(0));
-    EXPECT_TRUE(bs.test(63));
-    EXPECT_TRUE(bs.test(64));
-    EXPECT_TRUE(bs.test(127));
-    EXPECT_TRUE(bs.test(199));
-    EXPECT_FALSE(bs.test(65));  //  words do not interfere with one another
-    EXPECT_FALSE(bs.test(128));
-
-    bs.reset();
-    for (const auto i : {0, 63, 64, 127, 199}) {
-        EXPECT_FALSE(bs.test(i));
-    }
-}
-
-static constexpr DynamicBitset makeBits(
-    const DynamicBitset::SizeType size, const std::initializer_list<DynamicBitset::SizeType> indices
-) {
-    DynamicBitset bs(size);
-    for (const auto i : indices) bs.set(i, true);
-    return bs;
-}
-
-static constexpr bool dynamicBitsetConstexprOps() {
-    DynamicBitset a(70);
-    a.set(1, true);
-    a.set(69, true);
-
-    const auto same = a & a;
-    const auto neg = ~a;
-    a |= a;     //  自併 → 不變
-    a ^= same;  //  自消 → 空
-
-    return same.test(1) && same.test(69) && neg.test(0) && !neg.test(1) && neg.trueCount() == 68 && a.none() &&
-           a.size() == 70;
-}
-static_assert(dynamicBitsetConstexprOps());
-
-TEST(DynamicBitset, BitwiseAndIntersects) {
-    const auto a = makeBits(200, {0, 63, 64, 127, 199});
-    const auto b = makeBits(200, {0, 64, 128, 199});
-
-    EXPECT_EQ(a & b, makeBits(200, {0, 64, 199}));
-    EXPECT_EQ((a & b).trueCount(), 3);
-    EXPECT_EQ(a, makeBits(200, {0, 63, 64, 127, 199}));  //  操作數不受影響
-    EXPECT_EQ(b, makeBits(200, {0, 64, 128, 199}));
-}
-
-TEST(DynamicBitset, BitwiseOrAndXor) {
-    const auto a = makeBits(70, {0, 63, 69});
-    const auto b = makeBits(70, {63, 64});
-
-    EXPECT_EQ(a | b, makeBits(70, {0, 63, 64, 69}));
-    EXPECT_EQ(a ^ b, makeBits(70, {0, 64, 69}));
-}
-
-TEST(DynamicBitset, BitwiseNotKeepsPaddingZero) {
-    const auto a = makeBits(70, {1, 69});  //  70 = 64 + 6，最後一個字有 58 個 padding 位
-    const auto n = ~a;
-
-    EXPECT_TRUE(n.test(0));
-    EXPECT_FALSE(n.test(1));
-    EXPECT_TRUE(n.test(68));
-    EXPECT_FALSE(n.test(69));
-    EXPECT_EQ(n.trueCount(), 68);
-    EXPECT_EQ(n.falseCount(), 2);         //  padding 洩漏時 falseCount 會變成 60
-    EXPECT_EQ(a, makeBits(70, {1, 69}));  //  原對象不受影響
-
-    EXPECT_TRUE((a | n).all());   //  互補 → 全 1
-    EXPECT_TRUE((a & n).none());  //  互斥 → 全 0
-}
-
-TEST(DynamicBitset, FillAndNotAreInverses) {
-    DynamicBitset bs(70);
-    bs.fill(true);
-    EXPECT_TRUE(bs.all());
-    EXPECT_EQ(bs.trueCount(), 70);
-    EXPECT_TRUE((~bs).none());  //  全 1 取反 → 全 0，padding 必須被遮罩
-
-    bs.fill(false);
-    EXPECT_TRUE(bs.none());
-    EXPECT_TRUE((~bs).all());
-}
-
-TEST(DynamicBitset, DisjointAndIsZero) {
-    const auto a = makeBits(64, {0, 63});
-    const auto b = makeBits(64, {31});
-
-    EXPECT_TRUE((a & b).none());
-    EXPECT_EQ(a & b, DynamicBitset(64));
-    EXPECT_EQ(a ^ b, makeBits(64, {0, 31, 63}));
-}
-
-TEST(DynamicBitset, AnyAllNone) {
-    constexpr DynamicBitset empty(0);
-    EXPECT_FALSE(empty.any());
-    EXPECT_TRUE(empty.none());
-    EXPECT_TRUE(empty.all());  //  空位集全真（空全稱量詞）
-
-    DynamicBitset bs(70);
-    EXPECT_TRUE(bs.none());
-    EXPECT_FALSE(bs.any());
-
-    bs.set(0, true);
-    EXPECT_TRUE(bs.any());
-    EXPECT_FALSE(bs.none());
-    EXPECT_FALSE(bs.all());
-
-    bs.fill(true);
-    EXPECT_TRUE(bs.all());
-    EXPECT_TRUE(bs.any());
-    EXPECT_FALSE(bs.none());
-}
-
-TEST(DynamicBitset, EqualityComparesContentAndSize) {
-    EXPECT_EQ(makeBits(64, {1, 2}), makeBits(64, {1, 2}));
-    EXPECT_NE(makeBits(64, {1, 2}), makeBits(64, {1}));
-    EXPECT_NE(makeBits(64, {1}), makeBits(65, {1}));  //  尺寸不同 → 不相等
-    EXPECT_EQ(DynamicBitset(0), DynamicBitset(0));
-    EXPECT_NE(DynamicBitset(0), DynamicBitset(1));
-}
-
-TEST(DynamicBitset, SizeMismatchThrows) {
-    auto a = makeBits(64, {0});
-    const auto b = makeBits(65, {0});
-    EXPECT_THROW((void)(a & b), std::invalid_argument);
-    EXPECT_THROW((void)(a | b), std::invalid_argument);
-    EXPECT_THROW((void)(a ^ b), std::invalid_argument);
-    EXPECT_THROW((void)(a &= b), std::invalid_argument);
-    EXPECT_THROW((void)(a |= b), std::invalid_argument);
-    EXPECT_THROW((void)(a ^= b), std::invalid_argument);
-}
-
-TEST(DynamicBitset, CompoundAssignmentsMutateInPlace) {
-    auto a = makeBits(64, {0, 1});
-    const auto b = makeBits(64, {1, 2});
-
-    DynamicBitset& ref = a &= b;
-    EXPECT_EQ(std::addressof(ref), std::addressof(a));
-    EXPECT_EQ(a, makeBits(64, {1}));
-
-    a.set(0, true);
-    a |= b;
-    EXPECT_EQ(a, makeBits(64, {0, 1, 2}));
-
-    a ^= b;
-    EXPECT_EQ(a, makeBits(64, {0}));
-}
-
-TEST(DynamicBitset, EmptyBitsetOperations) {
-    constexpr DynamicBitset e;
-    EXPECT_EQ(e & e, DynamicBitset(0));
-    EXPECT_EQ(e | e, DynamicBitset(0));
-    EXPECT_EQ(e ^ e, DynamicBitset(0));
-    EXPECT_EQ(~e, DynamicBitset(0));
-    EXPECT_TRUE((~e).none());
-    EXPECT_EQ(e.trueCount(), 0);
-    EXPECT_EQ(e.falseCount(), 0);
-}
-
-TEST(DynamicBitset, MatchesStdBitsetSemantics) {
-    constexpr size_t N = 200;
-    const auto a = makeBits(N, {0, 63, 64, 127, 199});
-    const auto b = makeBits(N, {0, 64, 128, 199});
-
-    std::bitset<N> sa, sb;
-    for (int i = 0; i < static_cast<int>(N); ++i) {
-        if (a.test(i)) sa.set(i);
-        if (b.test(i)) sb.set(i);
-    }
-    const auto fromStd = [](const std::bitset<N>& s) {
-        DynamicBitset bs(N);
-        for (int i = 0; i < static_cast<int>(N); ++i) {
-            if (s.test(i)) bs.set(i, true);
-        }
-        return bs;
-    };
-
-    EXPECT_EQ(a & b, fromStd(sa & sb));
-    EXPECT_EQ(a | b, fromStd(sa | sb));
-    EXPECT_EQ(a ^ b, fromStd(sa ^ sb));
-    EXPECT_EQ(~a, fromStd(~sa));
-}
+#include "test-helper.hpp"
 
 //   -------------------------------------------------------
 //   Algorithm Base
 //   -------------------------------------------------------
-
-constexpr auto cfg = ShuffleConfig{}.setAllowOriginalNeighbors(true);
-constexpr auto strictCfg = ShuffleConfig{}.setAllowFixedPoints(false).setAllowOriginalNeighbors(false);
 
 TEST(GridShuffler, SetGridRejectsEmpty) {
     GridShuffler s(42);
@@ -440,12 +136,13 @@ TEST(GridShuffler, GridCollectionAndClear) {
     EXPECT_EQ(s.getShuffledGridCount(), 0);
 }
 
-TEST(GridShuffler, AllEmptyGridShufflesUnchanged) {
+TEST(GridShuffler, AllEmptyGridReturnsEmptyGridError) {
+    //  全空格 grid 沒有可排的內容：視為 EmptyGrid（與無 grid 同級），不產生排位。
     GridShuffler s(42);
     s.setGrid(Grid::fromCSVString(",\n,\n"));  //  2x2 grid with all empty cells
     const auto result = s.shuffle();
-    ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(s.getGrid().toCSVString(), ",\n,\n");
+    ASSERT_FALSE(result.has_value());
+    EXPECT_EQ(result.error(), ShuffleError::EmptyGrid);
 }
 
 TEST(GridShuffler, MultipleShufflesAccumulate) {
@@ -700,174 +397,12 @@ TEST(GridShuffler, DefaultConfigAllowsFixedPointsAndOriginalNeighbors) {
     EXPECT_TRUE(s.validateResult());
 }
 
-//   -------------------------------------------------------
-//   Feasibility Test
-//   -------------------------------------------------------
-
-TEST(Feasibility, NoConstraints3x3IsFeasible) {
-    const Grid grid = Grid::fromCSVString("A,B,C\nD,E,F\nG,H,I\n");
-    const auto [status, layer, reason] = checkFeasibility(grid, ShuffleConfig{});
-    EXPECT_EQ(status, FeasibilityStatus::Feasible) << "layer=" << layer << " reason=" << reason;
-}
-
-TEST(Feasibility, DuplicateNamesAreFeasible) {
-    const Grid grid = Grid::fromCSVString("A,A,B\nC,D,E\nF,G,H\n");
-    const auto [status, layer, reason] = checkFeasibility(grid, ShuffleConfig{});
-    EXPECT_EQ(status, FeasibilityStatus::Feasible) << "layer=" << layer << " reason=" << reason;
-}
-
-TEST(Feasibility, FrozenEmptyCellsAreFeasible) {
-    const Grid grid = Grid::fromCSVString("A,B,C\nD,,F\nG,H,I\n");
-    const auto [status, layer, reason] = checkFeasibility(grid, ShuffleConfig{});
-    EXPECT_EQ(status, FeasibilityStatus::Feasible) << "layer=" << layer << " reason=" << reason;
-}
-
-TEST(Feasibility, FourForcedToSameRowExceedsCapacity) {
-    const Grid grid = Grid::fromCSVString("A,B,C\nD,E,F\nG,H,I\n");
-    const auto currentConfig = ShuffleConfig{}.forceRow("A", 0).forceRow("B", 0).forceRow("C", 0).forceRow("D", 0);
-    const auto [status, layer, reason] = checkFeasibility(grid, currentConfig);
-    EXPECT_EQ(status, FeasibilityStatus::Unsatisfiable) << "layer=" << layer << " reason=" << reason;
-    EXPECT_EQ(layer, "domain");
-}
-
-TEST(Feasibility, ForbidAllRowsLeavesEmptyDomain) {
-    const Grid grid = Grid::fromCSVString("A,B,C\nD,E,F\nG,H,I\n");
-    const auto currentConfig = ShuffleConfig{}.forbidRow("A", 0).forbidRow("A", 1).forbidRow("A", 2);
-    const auto [status, layer, reason] = checkFeasibility(grid, currentConfig);
-    EXPECT_EQ(status, FeasibilityStatus::Unsatisfiable) << "layer=" << layer << " reason=" << reason;
-    EXPECT_EQ(layer, "domain");
-}
-
-TEST(Feasibility, ForceAndForbidSameRowConflicts) {
-    const Grid grid = Grid::fromCSVString("A,B,C\nD,E,F\nG,H,I\n");
-    const auto currentConfig = ShuffleConfig{}.forceRow("A", 1).forbidRow("A", 1);
-    const auto [status, layer, reason] = checkFeasibility(grid, currentConfig);
-    EXPECT_EQ(status, FeasibilityStatus::Unsatisfiable) << "layer=" << layer << " reason=" << reason;
-    EXPECT_EQ(layer, "domain");
-}
-
-TEST(Feasibility, TwoElementsLockedToSameCellFailsMatching) {
-    const Grid grid = Grid::fromCSVString("A,B,C\nD,E,F\nG,H,I\n");
-    const auto currentConfig = ShuffleConfig{}.forceRow("A", 0).forceCol("A", 0).forceRow("B", 0).forceCol("B", 0);
-    const auto [status, layer, reason] = checkFeasibility(grid, currentConfig);
-    EXPECT_EQ(status, FeasibilityStatus::Unsatisfiable) << "layer=" << layer << " reason=" << reason;
-    EXPECT_EQ(layer, "matching");
-}
-
-TEST(Feasibility, ThreeMutuallyExclusiveWithTwoRowsUnsatisfiable) {
-    const Grid grid = Grid::fromCSVString("A,B\nC,D\n");
-    const auto currentConfig =
-        ShuffleConfig{}.forbidShareRow("A", "B").forbidShareRow("B", "C").forbidShareRow("A", "C");
-    const auto [status, layer, reason] = checkFeasibility(grid, currentConfig);
-    EXPECT_EQ(status, FeasibilityStatus::Unsatisfiable) << "layer=" << layer << " reason=" << reason;
-    EXPECT_EQ(layer, "coloring");
-}
-
-TEST(Feasibility, ExclusivePairForcedToSameRowConflicts) {
-    const Grid grid = Grid::fromCSVString("A,B,C\nD,E,F\nG,H,I\n");
-    const auto currentConfig = ShuffleConfig{}.forceRow("A", 1).forceRow("B", 1).forbidShareRow("A", "B");
-    const auto [status, layer, reason] = checkFeasibility(grid, currentConfig);
-    EXPECT_EQ(status, FeasibilityStatus::Unsatisfiable) << "layer=" << layer << " reason=" << reason;
-    EXPECT_EQ(layer, "domain");
-}
-
-TEST(Feasibility, ThreeMutuallyExclusiveWithThreeRowsFeasible) {
-    const Grid grid = Grid::fromCSVString("A,B,C\nD,E,F\nG,H,I\n");
-    const auto currentConfig =
-        ShuffleConfig{}.forbidShareRow("A", "B").forbidShareRow("B", "C").forbidShareRow("A", "C");
-    const auto [status, layer, reason] = checkFeasibility(grid, currentConfig);
-    EXPECT_EQ(status, FeasibilityStatus::Feasible) << "layer=" << layer << " reason=" << reason;
-}
-
-TEST(Feasibility, ZeroColoringBudgetReturnsUnknown) {
-    const Grid grid = Grid::fromCSVString("A,B,C\nD,E,F\nG,H,I\n");
-    const auto currentConfig =
-        ShuffleConfig{}.forbidShareRow("A", "B").forbidShareRow("B", "C").forbidShareRow("A", "C");
-    constexpr FeasibilityOptions opts{.checkForbidShare = true, .coloringNodeBudget = 0};
-    const auto [status, layer, reason] = checkFeasibility(grid, currentConfig, opts);
-    EXPECT_EQ(status, FeasibilityStatus::Unknown) << "layer=" << layer << " reason=" << reason;
-    EXPECT_EQ(layer, "coloring");
-}
-
-TEST(Feasibility, ExclusivePairForcedToSameColConflicts) {
-    const Grid grid = Grid::fromCSVString("A,B,C\nD,E,F\nG,H,I\n");
-    const auto currentConfig = ShuffleConfig{}.forceCol("A", 1).forceCol("B", 1).forbidShareCol("A", "B");
-    const auto [status, layer, reason] = checkFeasibility(grid, currentConfig);
-    EXPECT_EQ(status, FeasibilityStatus::Unsatisfiable) << "layer=" << layer << " reason=" << reason;
-    EXPECT_EQ(layer, "domain");
-}
-
-TEST(Feasibility, EmptyGridIsUnsatisfiable) {
-    const Grid grid;
-    const auto [status, layer, reason] = checkFeasibility(grid, ShuffleConfig{});
-    EXPECT_EQ(status, FeasibilityStatus::Unsatisfiable) << "layer=" << layer << " reason=" << reason;
-    EXPECT_EQ(layer, "domain");
-}
-
-TEST(Feasibility, ColoringDisabledFallsThroughToFeasible) {
-    const Grid grid = Grid::fromCSVString("A,B\nC,D\n");
-    const auto currentConfig =
-        ShuffleConfig{}.forbidShareRow("A", "B").forbidShareRow("B", "C").forbidShareRow("A", "C");
-    constexpr FeasibilityOptions opts{.checkForbidShare = false};
-    const auto [status, layer, reason] = checkFeasibility(grid, currentConfig, opts);
-    EXPECT_EQ(status, FeasibilityStatus::Feasible) << "layer=" << layer << " reason=" << reason;
-}
-
-//   -------------------------------------------------------
-//   ISSUE #6: Buddy Pairing & Cross-Aisle Neighbors
-//   -------------------------------------------------------
-
-//  復刻 shuffler.hpp 的 ray-cast 鄰居語義：沿方向掃描直到第一個非空格，
-//  空格是否穿透（走廊視線）由 crossAisleAreNeighbors 決定。
-static constexpr std::vector<int> rayNeighbors(
-    const Grid& grid, const int pos, const bool diagonals, const bool crossAisle
-) {
-    const int rows = grid.rowCount();
-    const int cols = grid.colCount();
-    const int sr = pos / cols;
-    const int sc = pos % cols;
-
-    static constexpr std::pair<int, int> cardinalDirs[] = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
-    static constexpr std::pair<int, int> diagonalDirs[] = {{-1, -1}, {-1, 1}, {1, -1}, {1, 1}};
-
-    std::vector<int> res;
-    const auto castRay = [&](const int dr, const int dc) {
-        int r = sr + dr;
-        int c = sc + dc;
-        while (r >= 0 && r < rows && c >= 0 && c < cols) {
-            const int idx = r * cols + c;
-            if (!grid[idx].empty()) {
-                res.push_back(idx);
-                return;
-            }
-            if (!crossAisle) return;
-            r += dr;
-            c += dc;
-        }
-    };
-    for (const auto& [dr, dc] : cardinalDirs) castRay(dr, dc);
-    if (diagonals) {
-        for (const auto& [dr, dc] : diagonalDirs) castRay(dr, dc);
-    }
-    return res;
-}
-
-//  name 在 grid 中是否至少有一個屬於 buddies 名單的鄰居（與演算法同語義）。
-static bool hasBuddyNeighbor(
-    const Grid& grid, const std::string& name, const std::vector<std::string>& buddies,
-    const ShuffleConfig& config
-) {
-    const auto it = std::ranges::find(grid, name);
-    if (it == grid.end()) return false;
-    const int pos = static_cast<int>(std::ranges::distance(grid.begin(), it));
-    return std::ranges::any_of(rayNeighbors(grid, pos, config.diagonalsAreNeighbors, config.crossAisleAreNeighbors),
-                               [&](const int n) { return std::ranges::contains(buddies, grid[n]); });
-}
 
 TEST(ShuffleConfig, Issue6DefaultsAndSetters) {
     const ShuffleConfig c;
     EXPECT_TRUE(c.crossAisleAreNeighbors);
     EXPECT_FALSE(c.enableBuddyMatching);
+    EXPECT_TRUE(c.doBuddyRotate);  //  換搭檔預設開啟
     EXPECT_TRUE(c.buddyGroups.first.empty());
     EXPECT_TRUE(c.buddyGroups.second.empty());
 
@@ -882,13 +417,14 @@ TEST(ShuffleConfig, Issue6DefaultsAndSetters) {
     EXPECT_EQ(d.buddyGroups.first, (std::vector<std::string>{"A1", "A2", "A3"}));
     EXPECT_EQ(d.buddyGroups.second, (std::vector<std::string>{"B1", "B2", "B3"}));
 
-    d.setEnableBuddyMatching(true).setCrossAisleAreNeighbors(false);
+    d.setEnableBuddyMatching(true).setCrossAisleAreNeighbors(false).setDoBuddyRotate(false);
     EXPECT_TRUE(d.enableBuddyMatching);
     EXPECT_FALSE(d.crossAisleAreNeighbors);
+    EXPECT_FALSE(d.doBuddyRotate);
 
     d.setBuddyGroups({"X"}, {"Y"});  //  再次設定應完全替換而非追加
-    EXPECT_EQ(d.buddyGroups.first, (std::vector<std::string>{"X"}));
-    EXPECT_EQ(d.buddyGroups.second, (std::vector<std::string>{"Y"}));
+    EXPECT_EQ(d.buddyGroups.first, std::vector<std::string>{"X"});
+    EXPECT_EQ(d.buddyGroups.second, std::vector<std::string>{"Y"});
 }
 
 TEST(GridShuffler, BuddyMatchingEveryMemberGetsCounterpart) {
@@ -916,7 +452,11 @@ TEST(GridShuffler, BuddyAcrossAisleDependsOnCrossAisleSetting) {
     const auto src = Grid::fromCSVString("A,,B\n");
 
     GridShuffler on(42);
-    on.setConfig(ShuffleConfig{cfg}.setEnableBuddyMatching(true).setBuddyGroups({"A"}, {"B"}));
+    //  隔走廊的 B 是 A 的舊搭檔：rotate 預設會禁 A-B 重逢 → 此測試聚焦穿透語義，關閉 rotate
+    on.setConfig(ShuffleConfig{cfg}
+                    .setEnableBuddyMatching(true)
+                    .setDoBuddyRotate(false)
+                    .setBuddyGroups({"A"}, {"B"}));
     on.setGrid(src);
     const auto onResult = on.shuffle();
     ASSERT_TRUE(onResult.has_value()) << "Shuffle ended with result: " << static_cast<int>(onResult.error());
@@ -979,10 +519,11 @@ TEST(GridShuffler, BuddyGroupsIgnoredWhenMatchingDisabled) {
 
 TEST(GridShuffler, UnknownBuddyNamesAreIgnored) {
     //  buddy 名單中不存在的名字應靜默忽略（與 constraints 的處理一致）。
+    //  佈局中 B 是 A 的舊搭檔：關閉 rotate，讓測試專注於「Ghost 忽略後 buddy 仍生效」。
     const std::vector<std::string> groupA = {"A", "Ghost"};
     const std::vector<std::string> groupB = {"B"};
     GridShuffler s(42);
-    s.setConfig(ShuffleConfig{cfg}.setEnableBuddyMatching(true).setBuddyGroups(groupA, groupB));
+    s.setConfig(ShuffleConfig{cfg}.setEnableBuddyMatching(true).setDoBuddyRotate(false).setBuddyGroups(groupA, groupB));
     s.setGrid(Grid::fromCSVString("A,B,X\n"));
     const auto result = s.shuffle();
     ASSERT_TRUE(result.has_value()) << "Shuffle ended with result: " << static_cast<int>(result.error());
@@ -1029,4 +570,80 @@ TEST(GridShuffler, BuddyWithNoOriginalNeighborsFailsWhenOnlyOldPartnerFits) {
     const auto result = s.shuffle();
     ASSERT_FALSE(result.has_value());
     EXPECT_EQ(result.error(), ShuffleError::MaxAttemptsReached);
+}
+
+TEST(GridShuffler, BuddyRotationAloneForcesFreshPartner) {
+    //  doBuddyRotate 的獨立鑑別：cfg 允許原鄰居重逢（allowOriginalNeighbors=true）。
+    //  A、B 為舊搭檔且 B 是 A 唯一可配的 B 組成員：rotate 生效 → A 永遠無法換搭檔
+    //  → 無解；rotate 關閉 → A-B 重逢合法 → 有解。rotate 未實作時第一段必然誤判成功。
+    const auto makeCfg = [](const bool rotate) {
+        return ShuffleConfig{cfg}
+            .setEnableBuddyMatching(true)
+            .setDoBuddyRotate(rotate)
+            .setBuddyGroups({"A"}, {"B"});
+    };
+
+    GridShuffler rotated(42);
+    rotated.setConfig(makeCfg(true));
+    rotated.setGrid(Grid::fromCSVString("A,B,X\n"));
+    const auto rotatedResult = rotated.shuffle();
+    ASSERT_FALSE(rotatedResult.has_value());
+    EXPECT_EQ(rotatedResult.error(), ShuffleError::MaxAttemptsReached);
+
+    GridShuffler noRotate(42);
+    noRotate.setConfig(makeCfg(false));
+    noRotate.setGrid(Grid::fromCSVString("A,B,X\n"));
+    const auto noRotateResult = noRotate.shuffle();
+    ASSERT_TRUE(noRotateResult.has_value()) << "Shuffle ended with result: " << static_cast<int>(noRotateResult.error());
+    EXPECT_TRUE(noRotate.validateResult());
+}
+
+TEST(GridShuffler, BuddyRotationPreciseOnOldPartnersOnly) {
+    //  舊測試 BuddyRotationReplacesOldPartners 靠 allowOriginalNeighbors=false 的泛化
+    //  禁止達標；此測試在 allowOriginalNeighbors=true（cfg）下驗證 rotate 的精準性：
+    //  只拆「A × 舊 B 搭檔」（A-B、C-X），A、C 仍須各配到一個新 B 搭檔。
+    //  1x6 原相鄰對：A-B、B-X、X-C、C-Y、Y-Z；A 組 {A, C}、B 組 {B, X}。
+    const auto src = Grid::fromCSVString("A,B,X,C,Y,Z\n");
+    const std::vector<std::string> groupA = {"A", "C"};
+    const std::vector<std::string> groupB = {"B", "X"};
+    GridShuffler s(42);
+    s.setConfig(ShuffleConfig{cfg}.setEnableBuddyMatching(true).setBuddyGroups(groupA, groupB));
+    s.setGrid(src);
+    const auto result = s.shuffle();
+    ASSERT_TRUE(result.has_value()) << "Shuffle ended with result: " << static_cast<int>(result.error());
+    EXPECT_TRUE(s.validateResult());
+
+    const auto got = s.getGrid();
+    for (const auto& a : groupA) EXPECT_TRUE(hasBuddyNeighbor(got, a, groupB, cfg)) << a << " lacks a B buddy";
+    EXPECT_FALSE(hasBuddyNeighbor(got, "A", {"B"}, cfg));  //  舊搭檔 A-B 已拆
+    EXPECT_FALSE(hasBuddyNeighbor(got, "C", {"X"}, cfg));  //  舊搭檔 C-X 已拆
+}
+
+TEST(GridShuffler, EmptyBuddyGroupDisablesMatching) {
+    //  任一群為空（含名單全不在 grid 中）→ 整組 buddy 約束停用，不得造成無解。
+    //  若空群未停用：A 需 B 群鄰居但 B 群空 → 必然 MaxAttemptsReached。
+    GridShuffler s(42);
+    s.setConfig(ShuffleConfig{cfg}
+                    .setEnableBuddyMatching(true)
+                    .setBuddyGroups({"A"}, {}));  //  B 群空
+    s.setGrid(Grid::fromCSVString("A,B,X\n"));
+    const auto result = s.shuffle();
+    ASSERT_TRUE(result.has_value()) << "Shuffle ended with result: " << static_cast<int>(result.error());
+    EXPECT_TRUE(s.validateResult());
+}
+
+TEST(GridShuffler, OverlappingBuddyNamesKeepRemainingPairs) {
+    //  A 組 {A, C}、B 組 {A, B}：重疊的 A 被雙向剔除後 → A 組 {C}、B 組 {B}，
+    //  C 仍需 B 鄰居（剔除不得連帶刪掉 C 的需求）。
+    //  佈局 A,C,X,B：C 原只鄰 A（重疊者）——剔除後 C 必須改配 B，能量面必然改變；
+    //  若剔除未實作，C 靠 A 即可滿足 buddy，結果不會把 C、B 湊在一起。
+    GridShuffler s(42);
+    s.setConfig(ShuffleConfig{cfg}
+                    .setEnableBuddyMatching(true)
+                    .setBuddyGroups({"A", "C"}, {"A", "B"}));
+    s.setGrid(Grid::fromCSVString("A,C,X,B\n"));
+    const auto result = s.shuffle();
+    ASSERT_TRUE(result.has_value()) << "Shuffle ended with result: " << static_cast<int>(result.error());
+    EXPECT_TRUE(s.validateResult());
+    EXPECT_TRUE(hasBuddyNeighbor(s.getGrid(), "C", {"B"}, cfg));  //  C 的新搭檔是 B
 }
