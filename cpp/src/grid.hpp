@@ -84,7 +84,7 @@ class Grid final {
         std::vector<std::string> data_;
 };
 
-Grid Grid::fromCSVString(const std::string& csvString) {
+inline Grid Grid::fromCSVString(const std::string& csvString) {
     if (csvString.empty()) return {};
 
     std::vector<std::string> data;
@@ -177,80 +177,84 @@ Grid Grid::fromCSVString(const std::string& csvString) {
     return Grid(rows, cols, std::move(data));
 }
 
-Grid::Grid(const int row, const int col) : rows_(row), cols_(col), data_(static_cast<size_t>(row) * col) {}
+inline Grid::Grid(const int row, const int col) : rows_(row), cols_(col), data_(static_cast<size_t>(row) * col) {}
 
-Grid::Grid(const int row, const int col, std::vector<std::string> data)
+inline Grid::Grid(const int row, const int col, std::vector<std::string> data)
     : rows_(row), cols_(col), data_(std::move(data)) {
     if (data_.size() != static_cast<size_t>(rows_) * cols_) {
         throw std::invalid_argument("Grid size mismatch");
     }
 }
 
-const std::string& Grid::operator[](const int row, const int col) const {
+inline const std::string& Grid::operator[](const int row, const int col) const {
     if (row < 0 || row >= rows_ || col < 0 || col >= cols_) {
         throw std::out_of_range("Grid: Index Out of range");
     }
     return data_[row * cols_ + col];
 }
 
-const std::string& Grid::operator[](const int index) const {
+inline const std::string& Grid::operator[](const int index) const {
     if (index < 0 || index >= this->size()) throw std::out_of_range("Grid: Index Out of range");
     return data_[index];
 }
 
-std::string& Grid::operator[](const int row, const int col) {
+inline std::string& Grid::operator[](const int row, const int col) {
     if (row < 0 || row >= rows_ || col < 0 || col >= cols_) {
         throw std::out_of_range("Grid: Index Out of range");
     }
     return data_[row * cols_ + col];
 }
 
-std::string& Grid::operator[](const int index) {
+inline std::string& Grid::operator[](const int index) {
     if (index < 0 || index >= this->size()) throw std::out_of_range("Grid: Index Out of range");
     return data_[index];
 }
 
-const std::string& Grid::get(const int row, const int col) const {
+inline const std::string& Grid::get(const int row, const int col) const {
     return (*this)[row, col];
 }
 
-const std::string& Grid::get(const int index) const {
+inline const std::string& Grid::get(const int index) const {
     return (*this)[index];
 }
 
-void Grid::set(const int row, const int col, std::string value) {
+inline void Grid::set(const int row, const int col, std::string value) {
     (*this)[row, col] = std::move(value);
 }
 
-void Grid::set(const int index, std::string value) {
+inline void Grid::set(const int index, std::string value) {
     (*this)[index] = std::move(value);
 }
 
-int Grid::rowCount() const noexcept {
+inline int Grid::rowCount() const noexcept {
     return rows_;
 }
 
-int Grid::colCount() const noexcept {
+inline int Grid::colCount() const noexcept {
     return cols_;
 }
 
-size_t Grid::size() const noexcept {
+inline size_t Grid::size() const noexcept {
     return data_.size();
 }
 
-bool Grid::empty() const noexcept {
+inline bool Grid::empty() const noexcept {
     return data_.empty();
 }
 
-const std::vector<std::string>& Grid::rawData() const noexcept {
+inline const std::vector<std::string>& Grid::rawData() const noexcept {
     return data_;
 }
 
-Grid Grid::clone() const noexcept {
+inline int64_t Grid::nonEmptyCount() const noexcept {
+    return std::ranges::count_if(data_, [](const std::string& cell) { return !cell.empty(); });
+}
+
+inline Grid Grid::clone() const noexcept {
     return *this;
 }
 
-std::string Grid::toCSVString() const {
+inline std::string Grid::toCSVString() const {
     if (data_.empty()) return "";
 
     std::string result;
@@ -280,7 +284,7 @@ std::string Grid::toCSVString() const {
     return result;
 }
 
-std::ostream& operator<<(std::ostream& os, const Grid& grid) {
+inline std::ostream& operator<<(std::ostream& os, const Grid& grid) {
     if (grid.empty()) {
         return os << "[Empty Grid]\n";
     }
