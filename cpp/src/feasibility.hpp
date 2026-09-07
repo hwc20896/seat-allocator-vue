@@ -83,7 +83,7 @@ struct ElementProfile {
     }
 };
 
-std::optional<std::string> layer1(const Grid& grid, const ShuffleConfig& cfg, std::vector<ElementProfile>& profiles) {
+inline std::optional<std::string> layer1(const Grid& grid, const ShuffleConfig& cfg, std::vector<ElementProfile>& profiles) {
     const int rows = grid.rowCount();
     const int cols = grid.colCount();
 
@@ -209,7 +209,7 @@ std::optional<std::string> layer1(const Grid& grid, const ShuffleConfig& cfg, st
     return std::nullopt;
 }
 
-bool tryAugment(const int e, const Graph& adj, std::vector<int>& matchPos, DynamicBitset& visited) {
+inline bool tryAugment(const int e, const Graph& adj, std::vector<int>& matchPos, DynamicBitset& visited) {
     for (const int pos : adj[e]) {
         if (visited.test(pos)) continue;
         visited.set(pos, true);
@@ -246,7 +246,7 @@ struct ColoringOutcome {
     bool budgetExceeded = false;
 };
 
-ColoringOutcome solveColoring(
+inline ColoringOutcome solveColoring(
     const DynamicBitset& adj,             // 衝突邊（n×n 位矩陣，adj[v*n+u] = 有邊）
     const int n,                          // 節點數
     const std::vector<int>& forcedColor,  // 鎖定顏色（-1 = 未鎖定）
@@ -321,7 +321,7 @@ ColoringOutcome solveColoring(
     return {.feasible = r == 1, .budgetExceeded = r == 2};
 }
 
-std::optional<std::string> layer3(
+inline std::optional<std::string> layer3(
     const Grid& grid, const ShuffleConfig& cfg, const std::vector<ElementProfile>& profiles,
     const FeasibilityOptions& opts, bool& budgetExceeded
 ) {
@@ -400,7 +400,7 @@ std::optional<std::string> layer3(
 }  // namespace feasibility_detail
 
 [[nodiscard]]
-FeasibilityReport checkFeasibility(const Grid& grid, const ShuffleConfig& cfg, const FeasibilityOptions& opts = {}) {
+inline FeasibilityReport checkFeasibility(const Grid& grid, const ShuffleConfig& cfg, const FeasibilityOptions& opts = {}) {
     if (grid.empty()) {
         return {.status = FeasibilityStatus::Unsatisfiable, .layer = "domain", .reason = "grid 為空，無從安排"};
     }

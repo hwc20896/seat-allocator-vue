@@ -54,8 +54,16 @@ class Grid final {
         [[nodiscard]]
         const std::vector<std::string>& rawData() const noexcept;
 
+        [[nodiscard]]
+        int64_t nonEmptyCount() const noexcept;
+
         auto begin() noexcept { return data_.begin(); }
         auto end() noexcept { return data_.end(); }
+
+        [[nodiscard]]
+        auto cbegin() const noexcept { return data_.cbegin(); }
+        [[nodiscard]]
+        auto cend() const noexcept { return data_.cend(); }
 
         [[nodiscard]]
         auto begin() const noexcept {

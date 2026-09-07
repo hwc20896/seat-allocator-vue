@@ -77,6 +77,7 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .function("forbidShareCol", &ShuffleConfig::forbidShareCol)
         .function("setCrossAisleAreNeighbors", &ShuffleConfig::setCrossAisleAreNeighbors)
         .function("setEnableBuddyMatching", &ShuffleConfig::setEnableBuddyMatching)
+        .function("setDoBuddyRotate", &ShuffleConfig::setDoBuddyRotate)
         .function("addBuddyPair", &ShuffleConfig::addBuddyPair)
         .function("setBuddyGroups", &ShuffleConfig::setBuddyGroups);
 

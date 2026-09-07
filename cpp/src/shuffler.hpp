@@ -9,7 +9,6 @@
 #include <future>
 #include <expected>
 #include <numeric>
-#include <numbers>
 
 #ifdef __EMSCRIPTEN__
     #include <emscripten.h>
@@ -122,6 +121,7 @@ class GridShuffler final {
 
         //  ISSUE #6
         DynamicBitset isGroupA_, isGroupB_;
+        DynamicBitset oldBuddyForbiddenMatrix_;
 
     private /* methods */:
         ArrayOf<NodeID> getNeighbors(int idx, bool diagonals) const;
@@ -141,15 +141,15 @@ class GridShuffler final {
         bool validateGridInternal(const Grid& grid) const;
 };
 
-GridShuffler::GridShuffler() : GridShuffler(std::random_device{}()) {}
+inline GridShuffler::GridShuffler() : GridShuffler(std::random_device{}()) {}
 
-GridShuffler::GridShuffler(const uint32_t seed) : rng(seed) {}
+inline GridShuffler::GridShuffler(const uint32_t seed) : rng(seed) {}
 
-size_t GridShuffler::getShuffledGridCount() const noexcept {
+inline size_t GridShuffler::getShuffledGridCount() const noexcept {
     return shuffleGrids_.size();
 }
 
-bool GridShuffler::setGrid(const Grid& grid) {
+inline bool GridShuffler::setGrid(const Grid& grid) {
     if (grid.empty()) {
         return false;
     }
@@ -164,49 +164,50 @@ bool GridShuffler::setGrid(const Grid& grid) {
     return true;
 }
 
-void GridShuffler::setConfig(const ShuffleConfig& cfg) {
+inline void GridShuffler::setConfig(const ShuffleConfig& cfg) {
     if (cfg == config_) return;
 
     config_ = cfg;
     this->rebuildConstraints();
 }
 
-void GridShuffler::setAnnealingConfig(const AnnealingConfig& cfg) {
+inline void GridShuffler::setAnnealingConfig(const AnnealingConfig& cfg) {
     annealingConfig_     = cfg;
     annealingConfigFunc_ = {};
     currentMethod_       = AnnealingMethod::UserFixed;
 }
 
-void GridShuffler::setAnnealingConfig(std::function<AnnealingConfig(int)> cfgFunc) {
+inline void GridShuffler::setAnnealingConfig(std::function<AnnealingConfig(int)> cfgFunc) {
     annealingConfig_  = {};
     annealingConfigFunc_ = std::move(cfgFunc);
     currentMethod_       = AnnealingMethod::UserDynamic;
 }
 
-void GridShuffler::setPenaltyWeights(const PenaltyWeights& weights) {
+inline void GridShuffler::setPenaltyWeights(const PenaltyWeights& weights) {
     penaltyWeights_ = weights;
 }
 
-const Grid& GridShuffler::getOriginalGrid() const noexcept {
+inline const Grid& GridShuffler::getOriginalGrid() const noexcept {
     return originalGrid_;
 }
 
-const Grid& GridShuffler::getGrid() const noexcept {
+inline const Grid& GridShuffler::getGrid() const noexcept {
     if (shuffleGrids_.empty()) {
         return originalGrid_;
     }
     return shuffleGrids_.back();
 }
 
-const Grid& GridShuffler::getGrid(const int index) const {
+inline const Grid& GridShuffler::getGrid(const int index) const {
     if (index < 0 || static_cast<size_t>(index) >= shuffleGrids_.size()) {
         throw std::out_of_range("GridRandomizer: Index out of range.");
     }
     return shuffleGrids_[index];
 }
 
-std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
-    if (gridSize_ == 0) return std::unexpected(ShuffleError::EmptyGrid);
+inline std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
+    const auto nonEmptyCount = static_cast<int>(originalGrid_.nonEmptyCount());
+    if (nonEmptyCount == 0) return std::unexpected(ShuffleError::EmptyGrid);
 
     namespace chrn = std::chrono;
 
@@ -214,11 +215,28 @@ std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
 
     switch (currentMethod_) {
         case AnnealingMethod::Automatic: {
-            const int dynamicMaxSteps = std::max(50'000, gridSize_ * 300);
+            /**
+             * For a grid containing \f$N\f$ non-empty cells, let \f$L = \sqrt{N}\f$ be its estimated
+             * side length. The parameters are chosen as follows:
+             *
+             * \f[
+             *   \text{maxSteps} &= 5000 + 300L
+             *   T_0 &= \min(20, 5 + \log_2L)\\
+             *   T_{\text{end}} &= 0.005\\
+             *   \alpha &= (T_{\text{end}} / T_0) ^ {1 / (0.6 \cdot \text{maxSteps})}\\
+             * \f]
+             *
+             * Thus, larger problems receive more annealing steps and a moderately higher
+             * initial temperature. The cooling rate is derived from the initial and
+             * target temperatures rather than being fixed independently.
+             */
+            const double sideLength = std::sqrt(static_cast<double>(nonEmptyCount));
 
-            constexpr double T0 = 10.0 / std::numbers::ln2;
-            constexpr double Tend = 0.01;
-            const double alpha = std::pow(Tend / T0, 1.0 / dynamicMaxSteps);
+            const int dynamicMaxSteps = static_cast<int>(5'000 + sideLength * 300);
+            const double T0 = std::min(20.0, 5.0 + std::log2(sideLength));
+            constexpr double Tend = 0.005;
+
+            const double alpha = std::pow(Tend / T0, 1.0 / (dynamicMaxSteps * 0.6));
 
             annealingConfig_.maxSteps = dynamicMaxSteps;
             annealingConfig_.initialTemperature = T0;
@@ -226,7 +244,7 @@ std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
             break;
         }
         case AnnealingMethod::UserDynamic: {
-            annealingConfig_ = std::invoke(annealingConfigFunc_, gridSize_);
+            annealingConfig_ = std::invoke(annealingConfigFunc_, nonEmptyCount);
             break;
         }
         case AnnealingMethod::UserFixed:
@@ -368,20 +386,20 @@ std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
     return std::unexpected(ShuffleError::MaxAttemptsReached);
 }
 
-bool GridShuffler::validateResult() const {
+inline bool GridShuffler::validateResult() const {
     if (shuffleGrids_.empty()) return false;
     return this->validateGridInternal(shuffleGrids_.back());
 }
 
-void GridShuffler::clearShuffledGrids() {
+inline void GridShuffler::clearShuffledGrids() {
     shuffleGrids_.clear();
 }
 
-const ArrayOf<Grid>& GridShuffler::getAllGrids() const noexcept {
+inline const ArrayOf<Grid>& GridShuffler::getAllGrids() const noexcept {
     return shuffleGrids_;
 }
 
-ArrayOf<NodeID> GridShuffler::getNeighbors(const int idx, const bool diagonals) const {
+inline ArrayOf<NodeID> GridShuffler::getNeighbors(const int idx, const bool diagonals) const {
     const int startRow = idx / gridCol_;
     const int startCol = idx % gridCol_;
 
@@ -404,7 +422,7 @@ ArrayOf<NodeID> GridShuffler::getNeighbors(const int idx, const bool diagonals) 
         { 1,  1}  // 東南
     };
 
-    auto castRay = [&](const int dr, const int dc) {
+    const auto castRay = [&](const int dr, const int dc) {
         int r = startRow + dr;
         int c = startCol + dc;
 
@@ -438,7 +456,7 @@ ArrayOf<NodeID> GridShuffler::getNeighbors(const int idx, const bool diagonals) 
     return res;
 }
 
-void GridShuffler::rebuildConstraints() {
+inline void GridShuffler::rebuildConstraints() {
     gridRow_ = originalGrid_.rowCount();
     gridCol_ = gridRow_ > 0 ? originalGrid_.colCount() : 0;
     gridSize_ = originalGrid_.size();
@@ -491,8 +509,8 @@ void GridShuffler::rebuildConstraints() {
     }
 
     for (const auto& [a, b] : config_.custom_forbidden_pairs) {
-        auto it_a = stringToID_.find(a);
-        auto it_b = stringToID_.find(b);
+        const auto it_a = stringToID_.find(a);
+        const auto it_b = stringToID_.find(b);
 
         if (it_a == stringToID_.end() || it_b == stringToID_.end()) continue;
 
@@ -561,25 +579,52 @@ void GridShuffler::rebuildConstraints() {
     //  ISSUE #6
     isGroupA_ = DynamicBitset(gridSize_);
     isGroupB_ = DynamicBitset(gridSize_);
+    oldBuddyForbiddenMatrix_ = DynamicBitset(static_cast<uint64_t>(gridSize_) * gridSize_);
 
     if (config_.enableBuddyMatching) {
         const auto& [namesA, namesB] = config_.buddyGroups;
 
+        // 1. 正常載入 A 群名單
         for (const auto& name : namesA) {
-            if (const auto it = stringToID_.find(name); it != stringToID_.end()) {
+            if (auto it = stringToID_.find(name); it != stringToID_.end()) {
                 isGroupA_.set(it->second, true);
             }
         }
 
+        // 2. 正常載入 B 群名單
         for (const auto& name : namesB) {
-            if (const auto it = stringToID_.find(name); it != stringToID_.end()) {
+            if (auto it = stringToID_.find(name); it != stringToID_.end()) {
                 isGroupB_.set(it->second, true);
+            }
+        }
+
+        const DynamicBitset overlap = isGroupA_ & isGroupB_;
+
+        if (overlap.any()) {
+            isGroupA_ ^= overlap;
+            isGroupB_ ^= overlap;
+        }
+
+        if (isGroupA_.none() || isGroupB_.none()) {
+            isGroupA_.reset();
+            isGroupB_.reset();
+        }
+        if (config_.doBuddyRotate) {
+            for (int a = 0; a < gridSize_; ++a) {
+                if (!isGroupA_.test(a)) continue;              // 只為 A 群人建邊
+                const int origPos = originalPos_[a];           // A 的原始座位
+                const uint64_t base = static_cast<uint64_t>(a) * gridSize_;
+                for (const int j : neighborsOfPos[origPos]) {
+                    if (isGroupB_.test(j)) {                   // j = 坐在原鄰位的 B 群人（identity）
+                        oldBuddyForbiddenMatrix_.set(base + j, true);
+                    }
+                }
             }
         }
     }
 }
 
-int GridShuffler::getLocalEnergy(const int idx, const ArrayOf<ValueID>& state) const {
+inline int GridShuffler::getLocalEnergy(const int idx, const ArrayOf<ValueID>& state) const {
     const int val = state[idx];
 
     if (IDToString_[val].empty()) {
@@ -623,22 +668,29 @@ int GridShuffler::getLocalEnergy(const int idx, const ArrayOf<ValueID>& state) c
 
     //  ISSUE #6
     if (config_.enableBuddyMatching) {
-        auto hasBuddyIn = [&](const DynamicBitset& targetGroup) {
-            return std::ranges::any_of(neighborsOfPos[idx], [&](const int n_idx) {
-                const int neighbor_val = state[n_idx];
-                return !IDToString_[neighbor_val].empty() && targetGroup.test(neighbor_val);
-            });
-        };
-
-        if ((isGroupA_.test(val) && !hasBuddyIn(isGroupB_)) || (isGroupB_.test(val) && !hasBuddyIn(isGroupA_))) {
-            energy += penaltyWeights_.absolutePosition;
+        bool hasBuddy = false;
+        bool hasOldBuddy = false;
+        for (const int n_idx : neighborsOfPos[idx]) {
+            const int neighbor_val = state[n_idx];
+            if (IDToString_[neighbor_val].empty()) continue;
+            if (isGroupB_.test(neighbor_val)) hasBuddy = true;
+            if (config_.doBuddyRotate &&
+                oldBuddyForbiddenMatrix_.test(static_cast<uint64_t>(val) * gridSize_ + neighbor_val)) {
+                hasOldBuddy = true;
+            }
+        }
+        if (isGroupA_.test(val) && !hasBuddy) {
+            energy += penaltyWeights_.absolutePosition;    // 沒搭檔
+        }
+        if (isGroupA_.test(val) && hasOldBuddy) {
+            energy += penaltyWeights_.absolutePosition;    // 又坐到舊搭檔旁
         }
     }
 
     return energy;
 }
 
-int GridShuffler::getPairEnergyForElements(const ArrayOf<ValueID>& elements, const ArrayOf<ValueID>& posMap) const {
+inline int GridShuffler::getPairEnergyForElements(const ArrayOf<ValueID>& elements, const ArrayOf<ValueID>& posMap) const {
     return std::ranges::fold_left(elements, 0, [&](const int acc, const ValueID val) {
         int localAdd = 0;
         const int posVal = posMap[val];
@@ -656,7 +708,7 @@ int GridShuffler::getPairEnergyForElements(const ArrayOf<ValueID>& elements, con
     });
 }
 
-bool GridShuffler::validateGridInternal(const Grid& grid) const {
+inline bool GridShuffler::validateGridInternal(const Grid& grid) const {
     if (grid.size() != gridSize_) return false;
 
     if (grid.colCount() != gridCol_) return false;

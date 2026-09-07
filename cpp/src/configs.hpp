@@ -34,6 +34,7 @@ struct ShuffleConfig {
     //  ISSUE #6
     bool crossAisleAreNeighbors = true;
     bool enableBuddyMatching = false;
+    bool doBuddyRotate = true;
     std::pair<std::vector<std::string>, std::vector<std::string>> buddyGroups;
 
     CONSTEXPR_DEFAULT_EQUALITY(ShuffleConfig)
@@ -101,6 +102,11 @@ struct ShuffleConfig {
 
     constexpr ShuffleConfig& setEnableBuddyMatching(const bool _enable_buddy_matching) {
         this->enableBuddyMatching = _enable_buddy_matching;
+        return *this;
+    }
+
+    constexpr ShuffleConfig& setDoBuddyRotate(const bool _do_buddy_rotate) {
+        this->doBuddyRotate = _do_buddy_rotate;
         return *this;
     }
 

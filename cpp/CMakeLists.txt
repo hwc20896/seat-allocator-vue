@@ -44,12 +44,12 @@ if(EMSCRIPTEN)
     set(WASM_COPY_SOURCES
         "$<TARGET_FILE:alloc_algo>"
         "$<TARGET_FILE_DIR:alloc_algo>/alloc_algo.wasm"
-        #"${CMAKE_CURRENT_BINARY_DIR}/alloc_algo.d.ts"
+        "${CMAKE_CURRENT_BINARY_DIR}/alloc_algo.d.ts"
     )
     set(WASM_COPY_DESTS
         "${VUE_PROJECT_DIR}/src/assets/wasm/alloc_algo.js"
         "${VUE_PROJECT_DIR}/public/alloc_algo.wasm"
-        #"${VUE_PROJECT_DIR}/src/assets/wasm/alloc_algo.d.ts"
+        "${VUE_PROJECT_DIR}/src/assets/wasm/alloc_algo.d.ts"
     )
 
     set(WASM_COPY_COMMANDS)
