@@ -128,15 +128,11 @@ class GridShuffler final {
 
         void rebuildConstraints();
 
-        int getLocalEnergy(
-            int idx,
-            const ArrayOf<ValueID>& state
-        ) const;
+        //  includeSoft=false 時只計硬約束（供 validate 用）；true 時另計方位偏好等 soft 項
+        //  （soft 僅引導退火搜尋，不影響「解是否可接受」）。
+        int getLocalEnergy(int idx, const ArrayOf<ValueID>& state, bool includeSoft) const;
 
-        int getPairEnergyForElements(
-            const ArrayOf<ValueID>& elements,
-            const ArrayOf<ValueID>& posMap
-        ) const;
+        int getPairEnergyForElements(const ArrayOf<ValueID>& elements, const ArrayOf<ValueID>& posMap) const;
 
         bool validateGridInternal(const Grid& grid) const;
 };
@@ -266,18 +262,42 @@ inline std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
             posMap[state[i]] = i;
         }
 
-        int totalEnergy =
-            std::ranges::fold_left(std::views::iota(0, gridSize_), 0,
-                                   [&](const int acc, const int idx) { return acc + getLocalEnergy(idx, state); }) +
-            getPairEnergyForElements(allElements_, posMap);
+        const auto emitSuccess = [&](const int doneAtStep) -> ResultType {
+            const auto end = chrn::high_resolution_clock::now();
+            shuffleGrids_.emplace_back(gridRow_, gridCol_, state | std::views::transform([this](const int val) {
+                                                               return IDToString_[val];
+                                                           }) | std::ranges::to<ArrayOf<DataType>>());
+            return ResultType{
+                .doneAtAttempt = attempt,
+                .doneAtStep = doneAtStep,
+                .tookMUS = static_cast<double>(chrn::duration_cast<chrn::microseconds>(end - algoStart).count())
+            };
+        };
+
+        const auto hardEnergyOf = [&] {
+            return std::ranges::fold_left(
+                       std::views::iota(0, gridSize_), 0,
+                       [&](const int acc, const int idx) { return acc + getLocalEnergy(idx, state, false); }
+                   ) +
+                   getPairEnergyForElements(allElements_, posMap);
+        };
+
+        int totalEnergy = std::ranges::fold_left(
+                              std::views::iota(0, gridSize_), 0,
+                              [&](const int acc, const int idx) { return acc + getLocalEnergy(idx, state, true); }
+                          ) +
+                          getPairEnergyForElements(allElements_, posMap);
 
         auto temperature = annealingConfig_.initialTemperature;
 
-        if (nonFrozenIndices_.size() < 2 && totalEnergy > 0) {
-            return std::unexpected(ShuffleError::Unsatisfiable);
+        if (nonFrozenIndices_.size() < 2) {
+            if (totalEnergy > 0 && hardEnergyOf() > 0) {
+                return std::unexpected(ShuffleError::Unsatisfiable);
+            }
+            return emitSuccess(0);
         }
 
-        std::uniform_int_distribution<uint64_t> dist{0ULL, nonFrozenIndices_.size() - 1};
+        std::uniform_int_distribution dist{0uz, nonFrozenIndices_.size() - 1};
         std::uniform_real_distribution probDist{0.0, 1.0};
 
         ArrayOf<NodeID> involvedPairVals;
@@ -365,14 +385,10 @@ inline std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
         }
 
         if (totalEnergy == 0) {
-            const auto end = chrn::high_resolution_clock::now();
-            shuffleGrids_.emplace_back(gridRow_, gridCol_, state | std::views::transform([this](const int val) {
-                                                               return IDToString_[val];
-                                                           }) | std::ranges::to<ArrayOf<DataType>>());
-            return ResultType{
-                .doneAtAttempt = attempt,
-                .doneAtStep = step,
-                .tookMUS = static_cast<double>(chrn::duration_cast<chrn::microseconds>(end - algoStart).count())};
+            return emitSuccess(step);
+        }
+        if (step >= annealingConfig_.maxSteps && hardEnergyOf() == 0) {
+            return emitSuccess(step);
         }
 #ifdef __EMSCRIPTEN__
         if (attempt % 200 == 0) {
@@ -621,7 +637,7 @@ inline void GridShuffler::rebuildConstraints() {
     }
 }
 
-inline int GridShuffler::getLocalEnergy(const int idx, const ArrayOf<ValueID>& state) const {
+inline int GridShuffler::getLocalEnergy(const int idx, const ArrayOf<ValueID>& state, const bool includeSoft) const {
     const int val = state[idx];
 
     if (IDToString_[val].empty()) {
@@ -664,23 +680,40 @@ inline int GridShuffler::getLocalEnergy(const int idx, const ArrayOf<ValueID>& s
     }
 
     //  ISSUE #6
-    if (config_.enableBuddyMatching) {
+    if (config_.enableBuddyMatching && isGroupA_.test(val)) {
+        const auto pref = config_.prioritizeBuddyPairPosition;
+        const bool wantsDirection = pref != PrioritizeBuddyPairPosition::AllAreAcceptable;
+
         bool hasBuddy = false;
+        bool preferenceSatisfied = !wantsDirection;
         bool hasOldBuddy = false;
         for (const int n_idx : neighborsOfPos[idx]) {
             const int neighbor_val = state[n_idx];
             if (IDToString_[neighbor_val].empty()) continue;
-            if (isGroupB_.test(neighbor_val)) hasBuddy = true;
+            if (isGroupB_.test(neighbor_val)) {
+                hasBuddy = true;
+                if (!preferenceSatisfied) {
+                    const int n_row = n_idx / gridCol_;
+                    const int n_col = n_idx % gridCol_;
+                    if ((pref == PrioritizeBuddyPairPosition::LeftAndRight && n_row == row) ||
+                        (pref == PrioritizeBuddyPairPosition::FrontAndBack && n_col == col)) {
+                        preferenceSatisfied = true;
+                    }
+                }
+            }
             if (config_.doBuddyRotate &&
                 oldBuddyForbiddenMatrix_.test(static_cast<uint64_t>(val) * gridSize_ + neighbor_val)) {
                 hasOldBuddy = true;
             }
         }
-        if (isGroupA_.test(val) && !hasBuddy) {
-            energy += penaltyWeights_.absolutePosition;    // 沒搭檔
+        if (!hasBuddy) {
+            energy += penaltyWeights_.absolutePosition;  // 沒搭檔（硬約束）
         }
-        if (isGroupA_.test(val) && hasOldBuddy) {
-            energy += penaltyWeights_.absolutePosition;    // 又坐到舊搭檔旁
+        if (hasOldBuddy) {
+            energy += penaltyWeights_.absolutePosition;  // 又坐到舊搭檔旁（硬約束）
+        }
+        if (includeSoft && hasBuddy && !preferenceSatisfied) {
+            energy += penaltyWeights_.buddyPreference;  // 搭檔不在偏好方位（soft）
         }
     }
 
@@ -740,10 +773,11 @@ inline bool GridShuffler::validateGridInternal(const Grid& grid) const {
 
     if (!(isFrozen_ | seen).all()) return false;
 
-    const int energy =
-        std::ranges::fold_left(std::views::iota(0, gridSize_), 0,
-                               [&](const int acc, const int val) { return acc + getLocalEnergy(val, state); }) +
-        getPairEnergyForElements(state, posMap);
+    const int energy = std::ranges::fold_left(
+                           std::views::iota(0, gridSize_), 0,
+                           [&](const int acc, const int val) { return acc + getLocalEnergy(val, state, false); }
+                       ) +
+                       getPairEnergyForElements(state, posMap);
 
     return energy == 0;
 }

@@ -482,8 +482,10 @@ TEST(GridShuffler, CrossAisleOffBreaksForbiddenPairAcrossCorridor) {
     const auto corridorCfg = [](const bool crossAisle) {
         return ShuffleConfig{cfg}
             .setCrossAisleAreNeighbors(crossAisle)
-            .forceRow("A", 0).forceCol("A", 0)
-            .forceRow("X", 2).forceCol("X", 0)
+            .forceRow("A", 0)
+            .forceCol("A", 0)
+            .forceRow("X", 2)
+            .forceCol("X", 0)
             .addForbiddenPair("A", "X");
     };
 
@@ -646,4 +648,56 @@ TEST(GridShuffler, OverlappingBuddyNamesKeepRemainingPairs) {
     ASSERT_TRUE(result.has_value()) << "Shuffle ended with result: " << static_cast<int>(result.error());
     EXPECT_TRUE(s.validateResult());
     EXPECT_TRUE(hasBuddyNeighbor(s.getGrid(), "C", {"B"}, cfg));  //  C 的新搭檔是 B
+}
+
+TEST(PenaltyWeights, BuddyPreferenceDefaultsToSoftWeight) {
+    //  buddyPreference 是 soft 項：預設應遠低於硬約束（1000 級）且不得為 0
+    //  （0 會使方位偏好完全不引導搜尋）。
+    EXPECT_EQ(PenaltyWeights{}.buddyPreference, 100);
+}
+
+TEST(GridShuffler, BuddyDirectionPreferenceIsSoftWhenPositionImpossible) {
+    const auto src = Grid::fromCSVString("A,X,Y\nB,Z,W\n");
+    const auto makeCfg = [](const PrioritizeBuddyPairPosition pref) {
+        return ShuffleConfig{cfg}
+            .setEnableBuddyMatching(true)
+            .setDoBuddyRotate(false)
+            .setBuddyGroups({"A"}, {"B"})
+            .forceRow("A", 0)
+            .forceCol("A", 0)
+            .forceRow("B", 1)
+            .forceCol("B", 0)
+            .setPrioritizeBuddyPairPosition(pref);
+    };
+
+    GridShuffler lr(42);
+    lr.setConfig(makeCfg(PrioritizeBuddyPairPosition::LeftAndRight));
+    lr.setGrid(src);
+    const auto lrResult = lr.shuffle();
+    ASSERT_TRUE(lrResult.has_value()) << "Shuffle ended with result: " << static_cast<int>(lrResult.error());
+    EXPECT_TRUE(lr.validateResult());
+    EXPECT_TRUE(hasBuddyNeighbor(lr.getGrid(), "A", {"B"}, cfg));  //  硬規則（有搭檔）仍滿足
+    
+    GridShuffler fb(42);
+    fb.setConfig(makeCfg(PrioritizeBuddyPairPosition::FrontAndBack));
+    fb.setGrid(src);
+    const auto fbResult = fb.shuffle();
+    ASSERT_TRUE(fbResult.has_value()) << "Shuffle ended with result: " << static_cast<int>(fbResult.error());
+    EXPECT_TRUE(fb.validateResult());
+}
+
+TEST(GridShuffler, BuddyDirectionPreferenceGuidesTowardLeftAndRight) {
+    const auto src = Grid::fromCSVString("A,X,Y\nB,Z,W\n");
+    const auto prefCfg = ShuffleConfig{cfg}.setPrioritizeBuddyPairPosition(PrioritizeBuddyPairPosition::LeftAndRight);
+
+    GridShuffler s(42);
+    s.setConfig(
+        ShuffleConfig{prefCfg}.setEnableBuddyMatching(true).setDoBuddyRotate(false).setBuddyGroups({"A"}, {"B"})
+    );
+    s.setGrid(src);
+    const auto result = s.shuffle();
+    ASSERT_TRUE(result.has_value()) << "Shuffle ended with result: " << static_cast<int>(result.error());
+    EXPECT_TRUE(s.validateResult());
+    EXPECT_TRUE(hasBuddyNeighbor(s.getGrid(), "A", {"B"}, cfg));
+    EXPECT_TRUE(hasBuddyInPreferredDirection(s.getGrid(), "A", {"B"}, prefCfg));
 }

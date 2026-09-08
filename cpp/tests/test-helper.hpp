@@ -49,6 +49,23 @@ inline bool hasBuddyNeighbor(
     const auto it = std::ranges::find(grid, name);
     if (it == grid.end()) return false;
     const int pos = static_cast<int>(std::ranges::distance(grid.begin(), it));
-    return std::ranges::any_of(rayNeighbors(grid, pos, config.diagonalsAreNeighbors, config.crossAisleAreNeighbors),
-                               [&](const int n) { return std::ranges::contains(buddies, grid[n]); });
+
+inline bool hasBuddyInPreferredDirection(
+    const Grid& grid, const std::string& name, const std::vector<std::string>& buddies, const ShuffleConfig& config
+) {
+    const auto it = std::ranges::find(grid, name);
+    if (it == grid.end()) return false;
+    const int pos = static_cast<int>(std::ranges::distance(grid.begin(), it));
+    const int row = pos / grid.colCount();
+    const int col = pos % grid.colCount();
+    const auto pref = config.prioritizeBuddyPairPosition;
+    return std::ranges::any_of(
+        rayNeighbors(grid, pos, config.diagonalsAreNeighbors, config.crossAisleAreNeighbors), [&](const int n) {
+            if (!std::ranges::contains(buddies, grid[n])) return false;
+            const int nRow = n / grid.colCount();
+            const int nCol = n % grid.colCount();
+            return (pref == PrioritizeBuddyPairPosition::LeftAndRight && nRow == row) ||
+                   (pref == PrioritizeBuddyPairPosition::FrontAndBack && nCol == col);
+        }
+    );
 }

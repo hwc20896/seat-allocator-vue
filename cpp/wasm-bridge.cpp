@@ -58,6 +58,11 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
 
     //  struct ShuffleConfig
     (void)
+    enum_<PrioritizeBuddyPairPosition>("PrioritizeBuddyPairPosition", enum_value_type::string)
+        .value("LeftAndRight", PrioritizeBuddyPairPosition::LeftAndRight)
+        .value("FrontAndBack", PrioritizeBuddyPairPosition::FrontAndBack)
+        .value("AllAreAcceptable", PrioritizeBuddyPairPosition::AllAreAcceptable);
+
     class_<ShuffleConfig>("ShuffleConfig")
         .constructor<>()
         .property("allowFixedPoints", &ShuffleConfig::allowFixedPoints)
@@ -79,7 +84,8 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .function("setEnableBuddyMatching", &ShuffleConfig::setEnableBuddyMatching)
         .function("setDoBuddyRotate", &ShuffleConfig::setDoBuddyRotate)
         .function("addBuddyPair", &ShuffleConfig::addBuddyPair)
-        .function("setBuddyGroups", &ShuffleConfig::setBuddyGroups);
+        .function("setBuddyGroups", &ShuffleConfig::setBuddyGroups)
+        .function("setPrioritizeBuddyPairPosition", &ShuffleConfig::setPrioritizeBuddyPairPosition);
 
     //  class GridShuffler
     (void)
@@ -95,7 +101,8 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .field("absolutePosition", &PenaltyWeights::absolutePosition)
         .field("originalNeighbor", &PenaltyWeights::originalNeighbor)
         .field("customForbidden", &PenaltyWeights::customForbidden)
-        .field("forbidShare", &PenaltyWeights::forbidShare);
+        .field("forbidShare", &PenaltyWeights::forbidShare)
+        .field("buddyPreference", &PenaltyWeights::buddyPreference);
 
     (void)
     enum_<FeasibilityStatus>("FeasibilityStatus", enum_value_type::number)

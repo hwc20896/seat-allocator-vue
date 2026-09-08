@@ -20,8 +20,15 @@ struct PenaltyWeights {
     int originalNeighbor = 10;
     int customForbidden = 1000;
     int forbidShare = 1000;
+    int buddyPreference = 100;   // 結對方位偏好未達成（soft：僅引導搜尋，不影響可解性/驗證）
 
     CONSTEXPR_DEFAULT_EQUALITY(PenaltyWeights)
+};
+
+enum class PrioritizeBuddyPairPosition {
+    LeftAndRight,
+    FrontAndBack,
+    AllAreAcceptable,
 };
 
 struct ShuffleConfig {
@@ -36,6 +43,8 @@ struct ShuffleConfig {
     bool enableBuddyMatching = false;
     bool doBuddyRotate = true;
     std::pair<std::vector<std::string>, std::vector<std::string>> buddyGroups;
+
+    PrioritizeBuddyPairPosition prioritizeBuddyPairPosition = PrioritizeBuddyPairPosition::AllAreAcceptable;
 
     CONSTEXPR_DEFAULT_EQUALITY(ShuffleConfig)
 
@@ -120,6 +129,11 @@ struct ShuffleConfig {
     constexpr ShuffleConfig& addBuddyPair(const std::string& name1, const std::string& name2) {
         this->buddyGroups.first.emplace_back(name1);
         this->buddyGroups.second.emplace_back(name2);
+        return *this;
+    }
+
+    constexpr ShuffleConfig& setPrioritizeBuddyPairPosition(const PrioritizeBuddyPairPosition _prioritize_buddy_pair_position) {
+        this->prioritizeBuddyPairPosition = _prioritize_buddy_pair_position;
         return *this;
     }
 };
