@@ -26,43 +26,44 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
     register_vector<Grid>("GridVector");
 
     //  struct Constraints
-    (void)
+    RET_VAL_DISCARDED
     value_object<ForceRow>("ForceRow")
         .field("first", &ForceRow::name)
         .field("second", &ForceRow::rowIdx);
 
-    (void)
+    RET_VAL_DISCARDED
     value_object<ForbidRow>("ForbidRow")
         .field("first", &ForbidRow::name)
         .field("second", &ForbidRow::rowIdx);
 
-    (void)
+    RET_VAL_DISCARDED
     value_object<ForceCol>("ForceCol")
         .field("first", &ForceCol::name)
         .field("second", &ForceCol::colIdx);
 
-    (void)
+    RET_VAL_DISCARDED
     value_object<ForbidCol>("ForbidCol")
         .field("first", &ForbidCol::name)
         .field("second", &ForbidCol::colIdx);
 
-    (void)
+    RET_VAL_DISCARDED
     value_object<ForbidShareRow>("ForbidShareRow")
         .field("first", &ForbidShareRow::name1)
         .field("second", &ForbidShareRow::name2);
 
-    (void)
+    RET_VAL_DISCARDED
     value_object<ForbidShareCol>("ForbidShareCol")
         .field("first", &ForbidShareCol::name1)
         .field("second", &ForbidShareCol::name2);
 
     //  struct ShuffleConfig
-    (void)
+    RET_VAL_DISCARDED
     enum_<PrioritizeBuddyPairPosition>("PrioritizeBuddyPairPosition", enum_value_type::string)
         .value("LeftAndRight", PrioritizeBuddyPairPosition::LeftAndRight)
         .value("FrontAndBack", PrioritizeBuddyPairPosition::FrontAndBack)
         .value("AllAreAcceptable", PrioritizeBuddyPairPosition::AllAreAcceptable);
 
+    RET_VAL_DISCARDED
     class_<ShuffleConfig>("ShuffleConfig")
         .constructor<>()
         .property("allowFixedPoints", &ShuffleConfig::allowFixedPoints)
@@ -88,14 +89,14 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .function("setPrioritizeBuddyPairPosition", &ShuffleConfig::setPrioritizeBuddyPairPosition);
 
     //  class GridShuffler
-    (void)
+    RET_VAL_DISCARDED
     value_object<AnnealingConfig>("AnnealingConfig")
         .field("initialTemperature", &AnnealingConfig::initialTemperature)
         .field("coolingRate", &AnnealingConfig::coolingRate)
         .field("maxSteps", &AnnealingConfig::maxSteps)
         .field("maxAttempts", &AnnealingConfig::maxAttempts);
 
-    (void)
+    RET_VAL_DISCARDED
     value_object<PenaltyWeights>("PenaltyWeights")
         .field("fixedPoint", &PenaltyWeights::fixedPoint)
         .field("absolutePosition", &PenaltyWeights::absolutePosition)
@@ -104,26 +105,26 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .field("forbidShare", &PenaltyWeights::forbidShare)
         .field("buddyPreference", &PenaltyWeights::buddyPreference);
 
-    (void)
+    RET_VAL_DISCARDED
     enum_<FeasibilityStatus>("FeasibilityStatus", enum_value_type::number)
         .value("Feasible", FeasibilityStatus::Feasible)
         .value("Unsatisfiable", FeasibilityStatus::Unsatisfiable)
         .value("Unknown", FeasibilityStatus::Unknown);
 
-    (void)
+    RET_VAL_DISCARDED
     value_object<FeasibilityReport>("FeasibilityReport")
         .field("status", &FeasibilityReport::status)
         .field("layer", &FeasibilityReport::layer)
         .field("reason", &FeasibilityReport::reason);
 
-    (void)
+    RET_VAL_DISCARDED
     enum_<ShuffleError>("ShuffleError", enum_value_type::string)
         .value("EmptyGrid", ShuffleError::EmptyGrid)
         .value("Unsatisfiable", ShuffleError::Unsatisfiable)
         .value("MaxAttemptsReached", ShuffleError::MaxAttemptsReached)
         .value("Unknown", ShuffleError::Unknown);
 
-    (void)
+    RET_VAL_DISCARDED
     value_object<ShuffleReport>("ShuffleReport")
         .field("success", &ShuffleReport::success)
         .field("doneAtAttempt", &ShuffleReport::doneAtAttempt)
@@ -131,7 +132,7 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .field("tookMUS", &ShuffleReport::tookMUS)
         .field("error", &ShuffleReport::error);
 
-    (void)
+    RET_VAL_DISCARDED
     class_<Grid>("Grid")
         .constructor<>()
         .constructor<int, int>()
@@ -149,7 +150,7 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .function("toCSVString", &Grid::toCSVString)
         .class_function("fromCSV", &Grid::fromCSVString);
 
-    (void)
+    RET_VAL_DISCARDED
     class_<GridShuffler>("GridShuffler")
         .constructor<>()
         .function("getShuffledGridCount", &GridShuffler::getShuffledGridCount)

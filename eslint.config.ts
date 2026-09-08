@@ -16,7 +16,7 @@ export default defineConfigWithVueTs(
     files: ['**/*.{vue,ts,mts,tsx}'],
   },
 
-  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**']),
+  globalIgnores(['**/dist/**', '**/dist-ssr/**', '**/coverage/**', 'algo-build/**', 'src/assets/wasm/**']),
 
   ...pluginVue.configs['flat/essential'],
   vueTsConfigs.recommended,

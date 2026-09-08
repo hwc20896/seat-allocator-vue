@@ -1,6 +1,6 @@
-#include <gtest/gtest.h>
-
 #include "feasibility.hpp"
+
+#include <gtest/gtest.h>
 
 TEST(Feasibility, NoConstraints3x3IsFeasible) {
     const Grid grid = Grid::fromCSVString("A,B,C\nD,E,F\nG,H,I\n");

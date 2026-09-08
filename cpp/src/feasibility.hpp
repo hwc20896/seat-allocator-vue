@@ -83,7 +83,9 @@ struct ElementProfile {
     }
 };
 
-inline std::optional<std::string> layer1(const Grid& grid, const ShuffleConfig& cfg, std::vector<ElementProfile>& profiles) {
+inline std::optional<std::string> layer1(
+    const Grid& grid, const ShuffleConfig& cfg, std::vector<ElementProfile>& profiles
+) {
     const int rows = grid.rowCount();
     const int cols = grid.colCount();
 
@@ -400,7 +402,9 @@ inline std::optional<std::string> layer3(
 }  // namespace feasibility_detail
 
 [[nodiscard]]
-inline FeasibilityReport checkFeasibility(const Grid& grid, const ShuffleConfig& cfg, const FeasibilityOptions& opts = {}) {
+inline FeasibilityReport checkFeasibility(
+    const Grid& grid, const ShuffleConfig& cfg, const FeasibilityOptions& opts = {}
+) {
     if (grid.empty()) {
         return {.status = FeasibilityStatus::Unsatisfiable, .layer = "domain", .reason = "grid 為空，無從安排"};
     }

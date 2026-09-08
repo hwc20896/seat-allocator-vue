@@ -56,19 +56,20 @@ enum class AnnealingMode : int {
 
 //  靜態調參模式
 constexpr auto tunedAnnealingConfig = AnnealingConfig{
-    .initialTemperature = 5.0,
-    .coolingRate = 0.9990,
-    .maxSteps = 350'000,
+    .initialTemperature = 27.133843467313334,
+    .coolingRate = 0.99502562,
+    .maxSteps = 850'000,
     .maxAttempts = 5,
 };
 
 //  動態調參模式
 constexpr auto dynamicAnnealingConfig = [](const int nonEmptyGridSize) -> AnnealingConfig {
-    const int dynamicMaxSteps = std::max(50'000, nonEmptyGridSize * 300);
+    const double sideLength = std::sqrt(static_cast<double>(nonEmptyGridSize));
 
-    constexpr double T0 = 10.0 / std::numbers::ln2;
-    constexpr double Tend = 0.01;
-    const double alpha = std::pow(Tend / T0, 1.0 / dynamicMaxSteps);
+    const int dynamicMaxSteps = static_cast<int>(5'000 + sideLength * 300);
+    const double T0 = std::min(20.0, 5.0 + std::log2(sideLength));
+
+    constexpr double alpha = 0.9901277432209421;
 
     return {
         .initialTemperature = T0,

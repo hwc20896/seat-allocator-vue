@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include <string>
+#include <vector>
 
 template <class T>
 using ArrayOf = std::vector<T>;
@@ -21,26 +21,28 @@ using Graph = GridOf<NodeID>;
 using Row = ArrayOf<DataType>;
 
 template <class... Ts>
-struct overloaded : Ts... { using Ts::operator()...; };
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
 
-#define DEFAULT_COPY(cls)\
-    cls(const cls&) = default;\
+#define DEFAULT_COPY(cls)      \
+    cls(const cls&) = default; \
     cls& operator=(const cls&) = default;
 
-#define CONSTEXPR_DEFAULT_COPY(cls)\
-    constexpr cls(const cls&) = default;\
+#define CONSTEXPR_DEFAULT_COPY(cls)      \
+    constexpr cls(const cls&) = default; \
     constexpr cls& operator=(const cls&) = default;
 
-#define DEFAULT_MOVE(cls)\
-    cls(cls&&) = default;\
+#define DEFAULT_MOVE(cls) \
+    cls(cls&&) = default; \
     cls& operator=(cls&&) = default;
 
-#define CONSTEXPR_DEFAULT_MOVE(cls)\
-    constexpr cls(cls&&) = default;\
+#define CONSTEXPR_DEFAULT_MOVE(cls) \
+    constexpr cls(cls&&) = default; \
     constexpr cls& operator=(cls&&) = default;
 
-#define CONSTEXPR_DEFAULT_THREE_WAY(cls)\
-    constexpr auto operator<=>(const cls&) const noexcept = default;
+#define CONSTEXPR_DEFAULT_THREE_WAY(cls) constexpr auto operator<=>(const cls&) const noexcept = default;
 
-#define CONSTEXPR_DEFAULT_EQUALITY(cls)\
-    constexpr bool operator==(const cls&) const noexcept = default;
+#define CONSTEXPR_DEFAULT_EQUALITY(cls) constexpr bool operator==(const cls&) const noexcept = default;
+
+#define RET_VAL_DISCARDED (void)

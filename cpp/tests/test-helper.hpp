@@ -8,9 +8,7 @@ inline constexpr auto strictCfg = ShuffleConfig{}.setAllowFixedPoints(false).set
 
 //  復刻 shuffler.hpp 的 ray-cast 鄰居語義：沿方向掃描直到第一個非空格，
 //  空格是否穿透（走廊視線）由 crossAisleAreNeighbors 決定。
-constexpr std::vector<int> rayNeighbors(
-    const Grid& grid, const int pos, const bool diagonals, const bool crossAisle
-) {
+constexpr std::vector<int> rayNeighbors(const Grid& grid, const int pos, const bool diagonals, const bool crossAisle) {
     const int rows = grid.rowCount();
     const int cols = grid.colCount();
     const int sr = pos / cols;
@@ -43,12 +41,16 @@ constexpr std::vector<int> rayNeighbors(
 
 //  name 在 grid 中是否至少有一個屬於 buddies 名單的鄰居（與演算法同語義）。
 inline bool hasBuddyNeighbor(
-    const Grid& grid, const std::string& name, const std::vector<std::string>& buddies,
-    const ShuffleConfig& config
+    const Grid& grid, const std::string& name, const std::vector<std::string>& buddies, const ShuffleConfig& config
 ) {
     const auto it = std::ranges::find(grid, name);
     if (it == grid.end()) return false;
     const int pos = static_cast<int>(std::ranges::distance(grid.begin(), it));
+    return std::ranges::any_of(
+        rayNeighbors(grid, pos, config.diagonalsAreNeighbors, config.crossAisleAreNeighbors),
+        [&](const int n) { return std::ranges::contains(buddies, grid[n]); }
+    );
+}
 
 inline bool hasBuddyInPreferredDirection(
     const Grid& grid, const std::string& name, const std::vector<std::string>& buddies, const ShuffleConfig& config

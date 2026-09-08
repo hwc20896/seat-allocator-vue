@@ -1,5 +1,6 @@
-#include <gtest/gtest.h>
 #include "grid.hpp"
+
+#include <gtest/gtest.h>
 
 TEST(GridCSV, BasicRoundTrip) {
     const auto g = Grid::fromCSVString("A,B\nC,D\n");

@@ -1,23 +1,23 @@
 #pragma once
 
 #include <algorithm>
-#include <unordered_map>
-#include <random>
-#include <utility>
 #include <chrono>
-#include <ranges>
-#include <future>
 #include <expected>
+#include <future>
 #include <numeric>
+#include <random>
+#include <ranges>
+#include <unordered_map>
+#include <utility>
 
 #ifdef __EMSCRIPTEN__
-    #include <emscripten.h>
+#include <emscripten.h>
 #endif
 
 #include "configs.hpp"
 #include "constraints.hpp"
-#include "grid.hpp"
 #include "dynamic-bitset.hpp"
+#include "grid.hpp"
 #include "utils.hpp"
 
 struct ResultType {
@@ -44,14 +44,14 @@ class GridShuffler final {
         [[nodiscard]]
         size_t getShuffledGridCount() const noexcept;
 
-        void setSeed(const uint32_t seed) const {rng = std::mt19937{seed};}
+        void setSeed(const uint32_t seed) const { rng = std::mt19937{seed}; }
 
         bool setGrid(const Grid& grid);
 
         void setConfig(const ShuffleConfig& cfg);
 
         void setAnnealingConfig(const AnnealingConfig& cfg);
-        void setAnnealingConfig(std::function<AnnealingConfig (int)> cfgFunc);
+        void setAnnealingConfig(std::function<AnnealingConfig(int)> cfgFunc);
 
         void setPenaltyWeights(const PenaltyWeights& weights);
 
@@ -82,13 +82,9 @@ class GridShuffler final {
 
         AnnealingConfig annealingConfig_;
 
-        enum class AnnealingMethod {
-            Automatic,
-            UserFixed,
-            UserDynamic
-        };
+        enum class AnnealingMethod { Automatic, UserFixed, UserDynamic };
         AnnealingMethod currentMethod_ = AnnealingMethod::Automatic;
-        std::function<AnnealingConfig (int)> annealingConfigFunc_;
+        std::function<AnnealingConfig(int)> annealingConfigFunc_;
 
         PenaltyWeights penaltyWeights_;
 
@@ -168,15 +164,15 @@ inline void GridShuffler::setConfig(const ShuffleConfig& cfg) {
 }
 
 inline void GridShuffler::setAnnealingConfig(const AnnealingConfig& cfg) {
-    annealingConfig_     = cfg;
+    annealingConfig_ = cfg;
     annealingConfigFunc_ = {};
-    currentMethod_       = AnnealingMethod::UserFixed;
+    currentMethod_ = AnnealingMethod::UserFixed;
 }
 
 inline void GridShuffler::setAnnealingConfig(std::function<AnnealingConfig(int)> cfgFunc) {
-    annealingConfig_  = {};
+    annealingConfig_ = {};
     annealingConfigFunc_ = std::move(cfgFunc);
-    currentMethod_       = AnnealingMethod::UserDynamic;
+    currentMethod_ = AnnealingMethod::UserDynamic;
 }
 
 inline void GridShuffler::setPenaltyWeights(const PenaltyWeights& weights) {
@@ -332,8 +328,9 @@ inline std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
             std::ranges::sort(affectedIndices);
             affectedIndices.erase(std::ranges::unique(affectedIndices).begin(), affectedIndices.end());
 
-            const int localEnergyBefore = std::ranges::fold_left(
-                affectedIndices, 0, [&](const int acc, const int idx) { return acc + getLocalEnergy(idx, state); });
+            const int localEnergyBefore = std::ranges::fold_left(affectedIndices, 0, [&](const int acc, const int idx) {
+                return acc + getLocalEnergy(idx, state, true);
+            });
 
             involvedPairVals.clear();
             involvedPairVals.push_back(val1);
@@ -344,14 +341,18 @@ inline std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
             involvedPairVals.append_range(forbidShareRowAdj_[val2]);
             involvedPairVals.append_range(forbidShareColAdj_[val2]);
 #else
-            involvedPairVals.insert(involvedPairVals.cend(), forbidShareRowAdj_[val1].begin(),
-                                    forbidShareRowAdj_[val1].end());
-            involvedPairVals.insert(involvedPairVals.cend(), forbidShareColAdj_[val1].begin(),
-                                    forbidShareColAdj_[val1].end());
-            involvedPairVals.insert(involvedPairVals.cend(), forbidShareRowAdj_[val2].begin(),
-                                    forbidShareRowAdj_[val2].end());
-            involvedPairVals.insert(involvedPairVals.cend(), forbidShareColAdj_[val2].begin(),
-                                    forbidShareColAdj_[val2].end());
+            involvedPairVals.insert(
+                involvedPairVals.cend(), forbidShareRowAdj_[val1].begin(), forbidShareRowAdj_[val1].end()
+            );
+            involvedPairVals.insert(
+                involvedPairVals.cend(), forbidShareColAdj_[val1].begin(), forbidShareColAdj_[val1].end()
+            );
+            involvedPairVals.insert(
+                involvedPairVals.cend(), forbidShareRowAdj_[val2].begin(), forbidShareRowAdj_[val2].end()
+            );
+            involvedPairVals.insert(
+                involvedPairVals.cend(), forbidShareColAdj_[val2].begin(), forbidShareColAdj_[val2].end()
+            );
 #endif
 
             std::ranges::sort(involvedPairVals);
@@ -364,8 +365,9 @@ inline std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
             posMap[val1] = idx2;
             posMap[val2] = idx1;
 
-            const int localEnergyAfter = std::ranges::fold_left(
-                affectedIndices, 0, [&](const int acc, const int idx) { return acc + getLocalEnergy(idx, state); });
+            const int localEnergyAfter = std::ranges::fold_left(affectedIndices, 0, [&](const int acc, const int idx) {
+                return acc + getLocalEnergy(idx, state, true);
+            });
 
             const int pairEnergyAfter = getPairEnergyForElements(involvedPairVals, posMap);
 
@@ -421,18 +423,18 @@ inline ArrayOf<NodeID> GridShuffler::getNeighbors(const int idx, const bool diag
 
     // 1. 正交 4 方向 (北、南、西、東)
     static constexpr std::pair<int, int> cardinalDirs[] = {
-        {-1,  0}, // 北
-        { 1,  0}, // 南
-        { 0, -1}, // 西
-        { 0,  1}  // 東
+        {-1, 0},  // 北
+        {1, 0},   // 南
+        {0, -1},  // 西
+        {0, 1}    // 東
     };
 
     // 2. 對角線 4 方向 (西北、東北、西南、東南)
     static constexpr std::pair<int, int> diagonalDirs[] = {
-        {-1, -1}, // 西北
-        {-1,  1}, // 東北
-        { 1, -1}, // 西南
-        { 1,  1}  // 東南
+        {-1, -1},  // 西北
+        {-1, 1},   // 東北
+        {1, -1},   // 西南
+        {1, 1}     // 東南
     };
 
     const auto castRay = [&](const int dr, const int dc) {
@@ -544,49 +546,52 @@ inline void GridShuffler::rebuildConstraints() {
 
     for (const auto& constraint : config_.constraints) {
         std::visit(
-            overloaded{[&](const ForceRow& c) {
-                           if (const auto it = stringToID_.find(c.name);
-                               it != stringToID_.end() && c.rowIdx >= 0 && c.rowIdx < gridRow_) {
-                               forcedRow_[it->second] = c.rowIdx;
-                           }
-                       },
-                       [&](const ForbidRow& c) {
-                           if (const auto it = stringToID_.find(c.name);
-                               it != stringToID_.end() && c.rowIdx >= 0 && c.rowIdx < gridRow_) {
-                               forbiddenRowsMatrix_.set(static_cast<uint64_t>(it->second) * gridRow_ + c.rowIdx, true);
-                           }
-                       },
-                       [&](const ForceCol& c) {
-                           if (const auto it = stringToID_.find(c.name);
-                               it != stringToID_.end() && c.colIdx >= 0 && c.colIdx < gridCol_) {
-                               forcedCol_[it->second] = c.colIdx;
-                           }
-                       },
-                       [&](const ForbidCol& c) {
-                           if (const auto it = stringToID_.find(c.name);
-                               it != stringToID_.end() && c.colIdx >= 0 && c.colIdx < gridCol_) {
-                               forbiddenColsMatrix_.set(static_cast<uint64_t>(it->second) * gridCol_ + c.colIdx, true);
-                           }
-                       },
-                       [&](const ForbidShareRow& c) {
-                           if (stringToID_.contains(c.name1) && stringToID_.contains(c.name2)) {
-                               const int id1 = stringToID_[c.name1];
-                               const int id2 = stringToID_[c.name2];
-                               if (id1 == id2) return;
-                               forbidShareRowAdj_[id1].push_back(id2);
-                               forbidShareRowAdj_[id2].push_back(id1);
-                           }
-                       },
-                       [&](const ForbidShareCol& c) {
-                           if (stringToID_.contains(c.name1) && stringToID_.contains(c.name2)) {
-                               const int id1 = stringToID_[c.name1];
-                               const int id2 = stringToID_[c.name2];
-                               if (id1 == id2) return;
-                               forbidShareColAdj_[id1].push_back(id2);
-                               forbidShareColAdj_[id2].push_back(id1);
-                           }
-                       }},
-            constraint);
+            overloaded{
+                [&](const ForceRow& c) {
+                    if (const auto it = stringToID_.find(c.name);
+                        it != stringToID_.end() && c.rowIdx >= 0 && c.rowIdx < gridRow_) {
+                        forcedRow_[it->second] = c.rowIdx;
+                    }
+                },
+                [&](const ForbidRow& c) {
+                    if (const auto it = stringToID_.find(c.name);
+                        it != stringToID_.end() && c.rowIdx >= 0 && c.rowIdx < gridRow_) {
+                        forbiddenRowsMatrix_.set(static_cast<uint64_t>(it->second) * gridRow_ + c.rowIdx, true);
+                    }
+                },
+                [&](const ForceCol& c) {
+                    if (const auto it = stringToID_.find(c.name);
+                        it != stringToID_.end() && c.colIdx >= 0 && c.colIdx < gridCol_) {
+                        forcedCol_[it->second] = c.colIdx;
+                    }
+                },
+                [&](const ForbidCol& c) {
+                    if (const auto it = stringToID_.find(c.name);
+                        it != stringToID_.end() && c.colIdx >= 0 && c.colIdx < gridCol_) {
+                        forbiddenColsMatrix_.set(static_cast<uint64_t>(it->second) * gridCol_ + c.colIdx, true);
+                    }
+                },
+                [&](const ForbidShareRow& c) {
+                    if (stringToID_.contains(c.name1) && stringToID_.contains(c.name2)) {
+                        const int id1 = stringToID_[c.name1];
+                        const int id2 = stringToID_[c.name2];
+                        if (id1 == id2) return;
+                        forbidShareRowAdj_[id1].push_back(id2);
+                        forbidShareRowAdj_[id2].push_back(id1);
+                    }
+                },
+                [&](const ForbidShareCol& c) {
+                    if (stringToID_.contains(c.name1) && stringToID_.contains(c.name2)) {
+                        const int id1 = stringToID_[c.name1];
+                        const int id2 = stringToID_[c.name2];
+                        if (id1 == id2) return;
+                        forbidShareColAdj_[id1].push_back(id2);
+                        forbidShareColAdj_[id2].push_back(id1);
+                    }
+                }
+            },
+            constraint
+        );
     }
 
     //  ISSUE #6
@@ -624,11 +629,11 @@ inline void GridShuffler::rebuildConstraints() {
         }
         if (config_.doBuddyRotate) {
             for (int a = 0; a < gridSize_; ++a) {
-                if (!isGroupA_.test(a)) continue;              // 只為 A 群人建邊
-                const int origPos = originalPos_[a];           // A 的原始座位
+                if (!isGroupA_.test(a)) continue;
+                const int origPos = originalPos_[a];
                 const uint64_t base = static_cast<uint64_t>(a) * gridSize_;
                 for (const int j : neighborsOfPos[origPos]) {
-                    if (isGroupB_.test(j)) {                   // j = 坐在原鄰位的 B 群人（identity）
+                    if (isGroupB_.test(j)) {
                         oldBuddyForbiddenMatrix_.set(base + j, true);
                     }
                 }
@@ -720,7 +725,9 @@ inline int GridShuffler::getLocalEnergy(const int idx, const ArrayOf<ValueID>& s
     return energy;
 }
 
-inline int GridShuffler::getPairEnergyForElements(const ArrayOf<ValueID>& elements, const ArrayOf<ValueID>& posMap) const {
+inline int GridShuffler::getPairEnergyForElements(
+    const ArrayOf<ValueID>& elements, const ArrayOf<ValueID>& posMap
+) const {
     return std::ranges::fold_left(elements, 0, [&](const int acc, const ValueID val) {
         int localAdd = 0;
         const int posVal = posMap[val];

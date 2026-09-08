@@ -1,6 +1,7 @@
+#include "shuffler.hpp"
+
 #include <gtest/gtest.h>
 
-#include "shuffler.hpp"
 #include "test-helper.hpp"
 
 //   -------------------------------------------------------
@@ -397,7 +398,6 @@ TEST(GridShuffler, DefaultConfigAllowsFixedPointsAndOriginalNeighbors) {
     EXPECT_TRUE(s.validateResult());
 }
 
-
 TEST(ShuffleConfig, Issue6DefaultsAndSetters) {
     const ShuffleConfig c;
     EXPECT_TRUE(c.crossAisleAreNeighbors);
@@ -405,6 +405,7 @@ TEST(ShuffleConfig, Issue6DefaultsAndSetters) {
     EXPECT_TRUE(c.doBuddyRotate);  //  換搭檔預設開啟
     EXPECT_TRUE(c.buddyGroups.first.empty());
     EXPECT_TRUE(c.buddyGroups.second.empty());
+    EXPECT_EQ(c.prioritizeBuddyPairPosition, PrioritizeBuddyPairPosition::AllAreAcceptable);
 
     const std::vector<std::string> g1 = {"A1", "A2"};
     const std::vector<std::string> g2 = {"B1", "B2"};
@@ -417,10 +418,14 @@ TEST(ShuffleConfig, Issue6DefaultsAndSetters) {
     EXPECT_EQ(d.buddyGroups.first, (std::vector<std::string>{"A1", "A2", "A3"}));
     EXPECT_EQ(d.buddyGroups.second, (std::vector<std::string>{"B1", "B2", "B3"}));
 
-    d.setEnableBuddyMatching(true).setCrossAisleAreNeighbors(false).setDoBuddyRotate(false);
+    d.setEnableBuddyMatching(true)
+        .setCrossAisleAreNeighbors(false)
+        .setDoBuddyRotate(false)
+        .setPrioritizeBuddyPairPosition(PrioritizeBuddyPairPosition::FrontAndBack);
     EXPECT_TRUE(d.enableBuddyMatching);
     EXPECT_FALSE(d.crossAisleAreNeighbors);
     EXPECT_FALSE(d.doBuddyRotate);
+    EXPECT_EQ(d.prioritizeBuddyPairPosition, PrioritizeBuddyPairPosition::FrontAndBack);
 
     d.setBuddyGroups({"X"}, {"Y"});  //  再次設定應完全替換而非追加
     EXPECT_EQ(d.buddyGroups.first, std::vector<std::string>{"X"});
@@ -453,10 +458,7 @@ TEST(GridShuffler, BuddyAcrossAisleDependsOnCrossAisleSetting) {
 
     GridShuffler on(42);
     //  隔走廊的 B 是 A 的舊搭檔：rotate 預設會禁 A-B 重逢 → 此測試聚焦穿透語義，關閉 rotate
-    on.setConfig(ShuffleConfig{cfg}
-                    .setEnableBuddyMatching(true)
-                    .setDoBuddyRotate(false)
-                    .setBuddyGroups({"A"}, {"B"}));
+    on.setConfig(ShuffleConfig{cfg}.setEnableBuddyMatching(true).setDoBuddyRotate(false).setBuddyGroups({"A"}, {"B"}));
     on.setGrid(src);
     const auto onResult = on.shuffle();
     ASSERT_TRUE(onResult.has_value()) << "Shuffle ended with result: " << static_cast<int>(onResult.error());
@@ -464,10 +466,9 @@ TEST(GridShuffler, BuddyAcrossAisleDependsOnCrossAisleSetting) {
     EXPECT_TRUE(hasBuddyNeighbor(on.getGrid(), "A", {"B"}, cfg));
 
     GridShuffler off(42);
-    off.setConfig(ShuffleConfig{cfg}
-                      .setEnableBuddyMatching(true)
-                      .setBuddyGroups({"A"}, {"B"})
-                      .setCrossAisleAreNeighbors(false));
+    off.setConfig(
+        ShuffleConfig{cfg}.setEnableBuddyMatching(true).setBuddyGroups({"A"}, {"B"}).setCrossAisleAreNeighbors(false)
+    );
     off.setGrid(src);
     const auto offResult = off.shuffle();
     ASSERT_FALSE(offResult.has_value());
@@ -510,9 +511,7 @@ TEST(GridShuffler, BuddyGroupsIgnoredWhenMatchingDisabled) {
     //  只設定 buddyGroups 但未開啟 enableBuddyMatching：分組不得造成任何約束。
     //  走廊穿透關閉時 A、B 永不相鄰；若 buddy 約束被誤觸發，此案例必定失敗。
     GridShuffler s(42);
-    s.setConfig(ShuffleConfig{cfg}
-                    .setCrossAisleAreNeighbors(false)
-                    .setBuddyGroups({"A"}, {"B"}));
+    s.setConfig(ShuffleConfig{cfg}.setCrossAisleAreNeighbors(false).setBuddyGroups({"A"}, {"B"}));
     s.setGrid(Grid::fromCSVString("A,,B\n"));
     const auto result = s.shuffle();
     ASSERT_TRUE(result.has_value()) << "Shuffle ended with result: " << static_cast<int>(result.error());
@@ -542,10 +541,9 @@ TEST(GridShuffler, BuddyRotationReplacesOldPartners) {
     const std::vector<std::string> groupA = {"A", "C"};
     const std::vector<std::string> groupB = {"B", "X"};
     GridShuffler s(42);
-    s.setConfig(ShuffleConfig{cfg}
-                    .setAllowOriginalNeighbors(false)
-                    .setEnableBuddyMatching(true)
-                    .setBuddyGroups(groupA, groupB));
+    s.setConfig(
+        ShuffleConfig{cfg}.setAllowOriginalNeighbors(false).setEnableBuddyMatching(true).setBuddyGroups(groupA, groupB)
+    );
     s.setGrid(src);
     const auto result = s.shuffle();
     ASSERT_TRUE(result.has_value()) << "Shuffle ended with result: " << static_cast<int>(result.error());
@@ -564,10 +562,9 @@ TEST(GridShuffler, BuddyWithNoOriginalNeighborsFailsWhenOnlyOldPartnerFits) {
     //  allowOriginalNeighbors=false 卻禁止 A-B 重逢 → 結構性無解。
     //  （若舊搭檔排斥未生效，A、B 相鄰恒可行，此案例必然成功。）
     GridShuffler s(42);
-    s.setConfig(ShuffleConfig{cfg}
-                    .setAllowOriginalNeighbors(false)
-                    .setEnableBuddyMatching(true)
-                    .setBuddyGroups({"A"}, {"B"}));
+    s.setConfig(
+        ShuffleConfig{cfg}.setAllowOriginalNeighbors(false).setEnableBuddyMatching(true).setBuddyGroups({"A"}, {"B"})
+    );
     s.setGrid(Grid::fromCSVString("A,B,X\n"));
     const auto result = s.shuffle();
     ASSERT_FALSE(result.has_value());
@@ -579,10 +576,7 @@ TEST(GridShuffler, BuddyRotationAloneForcesFreshPartner) {
     //  A、B 為舊搭檔且 B 是 A 唯一可配的 B 組成員：rotate 生效 → A 永遠無法換搭檔
     //  → 無解；rotate 關閉 → A-B 重逢合法 → 有解。rotate 未實作時第一段必然誤判成功。
     const auto makeCfg = [](const bool rotate) {
-        return ShuffleConfig{cfg}
-            .setEnableBuddyMatching(true)
-            .setDoBuddyRotate(rotate)
-            .setBuddyGroups({"A"}, {"B"});
+        return ShuffleConfig{cfg}.setEnableBuddyMatching(true).setDoBuddyRotate(rotate).setBuddyGroups({"A"}, {"B"});
     };
 
     GridShuffler rotated(42);
@@ -596,7 +590,8 @@ TEST(GridShuffler, BuddyRotationAloneForcesFreshPartner) {
     noRotate.setConfig(makeCfg(false));
     noRotate.setGrid(Grid::fromCSVString("A,B,X\n"));
     const auto noRotateResult = noRotate.shuffle();
-    ASSERT_TRUE(noRotateResult.has_value()) << "Shuffle ended with result: " << static_cast<int>(noRotateResult.error());
+    ASSERT_TRUE(noRotateResult.has_value())
+        << "Shuffle ended with result: " << static_cast<int>(noRotateResult.error());
     EXPECT_TRUE(noRotate.validateResult());
 }
 
@@ -625,9 +620,7 @@ TEST(GridShuffler, EmptyBuddyGroupDisablesMatching) {
     //  任一群為空（含名單全不在 grid 中）→ 整組 buddy 約束停用，不得造成無解。
     //  若空群未停用：A 需 B 群鄰居但 B 群空 → 必然 MaxAttemptsReached。
     GridShuffler s(42);
-    s.setConfig(ShuffleConfig{cfg}
-                    .setEnableBuddyMatching(true)
-                    .setBuddyGroups({"A"}, {}));  //  B 群空
+    s.setConfig(ShuffleConfig{cfg}.setEnableBuddyMatching(true).setBuddyGroups({"A"}, {}));  //  B 群空
     s.setGrid(Grid::fromCSVString("A,B,X\n"));
     const auto result = s.shuffle();
     ASSERT_TRUE(result.has_value()) << "Shuffle ended with result: " << static_cast<int>(result.error());
@@ -640,9 +633,7 @@ TEST(GridShuffler, OverlappingBuddyNamesKeepRemainingPairs) {
     //  佈局 A,C,X,B：C 原只鄰 A（重疊者）——剔除後 C 必須改配 B，能量面必然改變；
     //  若剔除未實作，C 靠 A 即可滿足 buddy，結果不會把 C、B 湊在一起。
     GridShuffler s(42);
-    s.setConfig(ShuffleConfig{cfg}
-                    .setEnableBuddyMatching(true)
-                    .setBuddyGroups({"A", "C"}, {"A", "B"}));
+    s.setConfig(ShuffleConfig{cfg}.setEnableBuddyMatching(true).setBuddyGroups({"A", "C"}, {"A", "B"}));
     s.setGrid(Grid::fromCSVString("A,C,X,B\n"));
     const auto result = s.shuffle();
     ASSERT_TRUE(result.has_value()) << "Shuffle ended with result: " << static_cast<int>(result.error());

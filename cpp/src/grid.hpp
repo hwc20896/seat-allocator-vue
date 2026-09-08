@@ -61,9 +61,13 @@ class Grid final {
         auto end() noexcept { return data_.end(); }
 
         [[nodiscard]]
-        auto cbegin() const noexcept { return data_.cbegin(); }
+        auto cbegin() const noexcept {
+            return data_.cbegin();
+        }
         [[nodiscard]]
-        auto cend() const noexcept { return data_.cend(); }
+        auto cend() const noexcept {
+            return data_.cend();
+        }
 
         [[nodiscard]]
         auto begin() const noexcept {
@@ -270,8 +274,10 @@ inline std::string Grid::toCSVString() const {
         for (int c = 0; c < cols_; ++c) {
             const std::string& cell = (*this)[r, c];
 
-            if (std::ranges::any_of(std::array{',', '"', '\n'},
-                                    [&cell](const char ch) { return cell.contains(ch); })  //  needs quoting
+            if (
+                std::ranges::any_of(std::array{',', '"', '\n'}, [&cell](const char ch) {
+                    return cell.contains(ch);
+                })  //  needs quoting
             ) {
                 result += '"';
                 for (const char ch : cell) {
