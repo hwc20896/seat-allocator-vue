@@ -223,7 +223,7 @@ inline std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
              *   \text{maxSteps} &= 5000 + 300L
              *   T_0 &= \min(20, 5 + \log_2L)\\
              *   T_{\text{end}} &= 0.005\\
-             *   \alpha &= (T_{\text{end}} / T_0) ^ {1 / (0.6 \cdot \text{maxSteps})}\\
+             *   \alpha &\approx 0.99\\
              * \f]
              *
              * Thus, larger problems receive more annealing steps and a moderately higher
@@ -234,13 +234,10 @@ inline std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
 
             const int dynamicMaxSteps = static_cast<int>(5'000 + sideLength * 300);
             const double T0 = std::min(20.0, 5.0 + std::log2(sideLength));
-            constexpr double Tend = 0.005;
-
-            const double alpha = std::pow(Tend / T0, 1.0 / (dynamicMaxSteps * 0.6));
 
             annealingConfig_.maxSteps = dynamicMaxSteps;
             annealingConfig_.initialTemperature = T0;
-            annealingConfig_.coolingRate = alpha;
+            annealingConfig_.coolingRate = 0.9901277432209421;  //  I have to admit, that this is a magic number.
             break;
         }
         case AnnealingMethod::UserDynamic: {
