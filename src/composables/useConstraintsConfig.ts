@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 import type { MainModule, ShuffleConfig } from '@/assets/wasm/alloc_algo';
-import type { ImportedConstraint } from '@/utils/JSONTypes.ts';
+import type { BuddyPairPosition, ImportedConstraint } from '@/utils/JSONTypes.ts';
 import { isBoolean } from 'lodash-es';
 
 /** 預設約束：與 C++ ShuffleConfig 默認值一致（允許原位、允許原本鄰座） */
@@ -14,6 +14,7 @@ const DEFAULT_CONFIG_JSON = JSON.stringify({
   customForbiddenPairs: [],
   constraints: [],
   buddyGroups: [],
+  prioritizeBuddyPairPosition: 'AllAreAcceptable',
 } satisfies ImportedConstraint);
 
 export function useConstraintsConfig() {
@@ -102,6 +103,13 @@ export function useConstraintsConfig() {
         cfg.setCrossAisleAreNeighbors(o.crossAisleAreNeighbors);
       if (isBoolean(o.enableBuddyMatching)) cfg.setEnableBuddyMatching(o.enableBuddyMatching);
       if (isBoolean(o.doBuddyRotate)) cfg.setDoBuddyRotate(o.doBuddyRotate);
+      if (
+        o.prioritizeBuddyPairPosition === 'LeftAndRight' ||
+        o.prioritizeBuddyPairPosition === 'FrontAndBack' ||
+        o.prioritizeBuddyPairPosition === 'AllAreAcceptable'
+      ) {
+        cfg.setPrioritizeBuddyPairPosition(o.prioritizeBuddyPairPosition satisfies BuddyPairPosition);
+      }
 
       if (Array.isArray(o.customForbiddenPairs)) {
         for (const p of o.customForbiddenPairs) {

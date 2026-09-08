@@ -161,6 +161,7 @@ describe('useConstraintsConfig', () => {
       customForbiddenPairs: [],
       constraints: [],
       buddyGroups: [],
+      prioritizeBuddyPairPosition: 'AllAreAcceptable',
     } satisfies ImportedConstraint);
     expect(parsedConfig.value).toBeNull();
   });
@@ -194,6 +195,30 @@ describe('useConstraintsConfig', () => {
     buildWasmConfig({ ShuffleConfig: FakeShuffleConfig } as never);
     expect(setAllowOriginalNeighbors).toHaveBeenCalledWith(true);
     expect(setDiagonalsAreNeighbors).toHaveBeenCalledWith(false);
+  });
+
+  it('buildWasmConfig 套用 prioritizeBuddyPairPosition', () => {
+    const setPrioritizeSpy = vi.fn();
+    class FakeShuffleConfig {
+      setPrioritizeBuddyPairPosition = setPrioritizeSpy;
+    }
+    const { loadConstraints, buildWasmConfig } = useConstraintsConfig();
+    loadConstraints(JSON.stringify({ prioritizeBuddyPairPosition: 'FrontAndBack' }));
+    buildWasmConfig({ ShuffleConfig: FakeShuffleConfig } as never);
+    expect(setPrioritizeSpy).toHaveBeenCalledWith('FrontAndBack');
+  });
+
+  it('prioritizeBuddyPairPosition 值非法時忽略（不呼叫 setter）', () => {
+    const setPrioritizeSpy = vi.fn();
+    class FakeShuffleConfig {
+      setPrioritizeBuddyPairPosition = setPrioritizeSpy;
+    }
+    const { loadConstraints, buildWasmConfig } = useConstraintsConfig();
+    expect(
+      loadConstraints(JSON.stringify({ prioritizeBuddyPairPosition: 'DiagonalOnly' })),
+    ).toBe(true);
+    buildWasmConfig({ ShuffleConfig: FakeShuffleConfig } as never);
+    expect(setPrioritizeSpy).not.toHaveBeenCalled();
   });
 
   it('constraints 含 null 條目時跳過', () => {

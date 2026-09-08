@@ -160,6 +160,25 @@
             </span>
           </label>
 
+          <div v-if="state.enableBuddyMatching" class="buddy-pref">
+            <span class="buddy-pref-title" :title="PRIORITIZE_POSITION_NOTE">
+              搭檔方位偏好
+              <span class="hover-hint">懸停查看說明</span>
+            </span>
+            <label
+              v-for="option in BUDDY_POSITION_OPTIONS"
+              :key="option.value"
+              class="buddy-pref-option"
+            >
+              <input
+                v-model="state.prioritizeBuddyPairPosition"
+                type="radio"
+                :value="option.value"
+              />
+              {{ option.label }}
+            </label>
+          </div>
+
           <input
             ref="buddyCSVInput"
             type="file"
@@ -262,7 +281,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 import type { FeasibilityReport } from '@/assets/wasm/alloc_algo';
-import type { Constraint, ImportedConstraint } from '@/utils/JSONTypes';
+import type { BuddyPairPosition, Constraint, ImportedConstraint } from '@/utils/JSONTypes';
 import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts';
 import { BUDDY_CSV_TEMPLATE, readBuddyFile, type BuddyCsvResult } from '@/utils/buddyCSV.ts';
 
@@ -294,6 +313,7 @@ interface EditorState {
   crossAisleAreNeighbors: boolean;
   enableBuddyMatching: boolean;
   doBuddyRotate: boolean;
+  prioritizeBuddyPairPosition: BuddyPairPosition;
   customForbiddenPairs: [string, string][];
   constraints: EditableConstraint[];
   buddyGroups: [string[], string[]];
@@ -339,6 +359,20 @@ const BUDDY_ROTATE_NOTE =
   '啟用後，A 組成員不得與原排位中相鄰的 B 組成員重逢（強制換新搭檔）。\n' +
   '與「允許與原本的鄰座相鄰」各自獨立，兩者同時影響可重逢的對象。';
 
+/** 搭檔方位偏好（soft：僅引導搜尋，不影響可解性）的懸停說明 */
+const PRIORITIZE_POSITION_NOTE =
+  '指定 A、B 搭檔的理想相對方位（soft：僅在洗牌時引導搜尋，不保證達成，也不影響可行性）。\n' +
+  '・左右相鄰：搭檔坐在同一橫排的左右鄰位；\n' +
+  '・前後相鄰：搭檔坐在同一豎排的前後鄰位；\n' +
+  '・無方位偏好：不引導方位（預設）。\n' +
+  '需先啟用「搭檔配對」才有作用。';
+
+const BUDDY_POSITION_OPTIONS: { value: BuddyPairPosition; label: string }[] = [
+  { value: 'LeftAndRight', label: '左右相鄰（同一橫排）' },
+  { value: 'FrontAndBack', label: '前後相鄰（同一豎排）' },
+  { value: 'AllAreAcceptable', label: '無方位偏好（預設）' },
+];
+
 const isPositionConstraint = (type: string): boolean =>
   type === 'FORCEROW' || type === 'FORBIDROW' || type === 'FORCECOL' || type === 'FORBIDCOL';
 
@@ -352,6 +386,7 @@ const createEmptyState = (): EditorState => ({
   crossAisleAreNeighbors: true,
   enableBuddyMatching: false,
   doBuddyRotate: true,
+  prioritizeBuddyPairPosition: 'AllAreAcceptable',
   customForbiddenPairs: [],
   constraints: [],
   buddyGroups: [[], []],
@@ -391,6 +426,7 @@ const parseConfig = (json: string): EditorState => {
   try {
     const obj = JSON.parse(json) as Record<string, unknown>;
     const rawConstraints = obj.constraints as unknown[];
+    const prefPosition = obj.prioritizeBuddyPairPosition;
     return {
       allowFixedPoints: typeof obj.allowFixedPoints === 'boolean' ? obj.allowFixedPoints : true,
       allowOriginalNeighbors:
@@ -402,6 +438,12 @@ const parseConfig = (json: string): EditorState => {
       enableBuddyMatching:
         typeof obj.enableBuddyMatching === 'boolean' ? obj.enableBuddyMatching : false,
       doBuddyRotate: typeof obj.doBuddyRotate === 'boolean' ? obj.doBuddyRotate : true,
+      prioritizeBuddyPairPosition:
+        prefPosition === 'LeftAndRight' ||
+        prefPosition === 'FrontAndBack' ||
+        prefPosition === 'AllAreAcceptable'
+          ? prefPosition
+          : 'AllAreAcceptable',
       customForbiddenPairs: Array.isArray(obj.customForbiddenPairs)
         ? obj.customForbiddenPairs
             .filter((p): p is [unknown, unknown] => Array.isArray(p) && p.length >= 2)
@@ -450,6 +492,7 @@ const toJson = (): string =>
       crossAisleAreNeighbors: state.crossAisleAreNeighbors,
       enableBuddyMatching: state.enableBuddyMatching,
       doBuddyRotate: state.doBuddyRotate,
+      prioritizeBuddyPairPosition: state.prioritizeBuddyPairPosition,
       customForbiddenPairs: state.customForbiddenPairs.map((pair) => [pair[0], pair[1]]),
       constraints: state.constraints.map(toConstraint),
       buddyGroups:
@@ -776,6 +819,54 @@ useKeyboardShortcut({ key: 'Escape' }, () => {
   font-size: 12px;
   font-weight: 600;
   color: var(--text-muted);
+}
+
+.buddy-pref {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  margin: 4px;
+  border: 1px dashed var(--border-light);
+  border-radius: 10px;
+  background: var(--bg-page);
+}
+
+.buddy-pref-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: help;
+}
+
+.buddy-pref-title .hover-hint {
+  margin-left: 0;
+}
+
+.buddy-pref-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.buddy-pref-option:hover {
+  background: var(--bg-control-hover);
+}
+
+.buddy-pref-option input[type='radio'] {
+  accent-color: var(--primary);
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  cursor: pointer;
 }
 
 .buddy-csv-input {
