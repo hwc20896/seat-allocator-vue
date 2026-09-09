@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <bit>
+#include <cstdint>
 #include <functional>
 #include <limits>
 #include <numeric>
