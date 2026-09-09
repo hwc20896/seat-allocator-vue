@@ -199,6 +199,7 @@ export function useGridShuffle(
         pristineGrid.getByPos(pos.row, pos.col) !== currentGrid.value?.getByPos(pos.row, pos.col)
       );
     } catch (e) {
+      console.error(e);
       return false;
     }
   };

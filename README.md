@@ -11,6 +11,8 @@
 - **匯出結果**：將任一頁分配結果存成 Excel 或 CSV
 - **顏色標記**：以正則表達式規則為特定座位著色
 - **演算法約束**：以 JSON 指定固定位置、禁止鄰座、禁止同排/同列等規則
+- **搭檔配對（Buddy Pairing）**：將成員分為 A、B 兩組，洗牌時確保每位 A 組成員身旁都有至少一位 B 組鄰座；可開啟輪換，避免與原本的舊搭檔重逢
+- **走廊視線穿透**：隔著走廊（空行／空列）相對而坐的座位也視為相鄰
 - **快捷鍵操作**：常用功能皆可用鍵盤完成
 
 ## 快速開始
@@ -81,47 +83,98 @@ npm run dev
   "allowFixedPoints": true,
   "allowOriginalNeighbors": true,
   "diagonalsAreNeighbors": false,
-  "customForbiddenPairs": [["張三", "李四"]],
+  "crossAisleAreNeighbors": true,
+  "enableBuddyMatching": true,
+  "doBuddyRotate": true,
+  "prioritizeBuddyPairPosition": "AllAreAcceptable",
+  "customForbiddenPairs": [
+    [
+      "張三",
+      "李四"
+    ]
+  ],
+  "buddyGroups": [
+    [
+      "A-01",
+      "A-02"
+    ],
+    [
+      "B-01",
+      "B-02"
+    ]
+  ],
   "constraints": [
-    { "type": "FORCEROW", "name": "王小明", "rowIdx": 0 },
-    { "type": "FORBIDCOL", "name": "陳大文", "colIdx": 2 }
+    {
+      "type": "FORCEROW",
+      "name": "王小明",
+      "rowIdx": 0
+    },
+    {
+      "type": "FORBIDCOL",
+      "name": "陳大文",
+      "colIdx": 2
+    }
   ]
 }
 ```
 
-| 欄位 | 說明 |
-| --- | --- |
-| `allowFixedPoints` | 是否允許座位留在原位置（預設 `true`） |
-| `allowOriginalNeighbors` | 是否允許與原本的鄰座相鄰（預設 `true`） |
-| `diagonalsAreNeighbors` | 斜對角是否視為相鄰（預設 `false`） |
-| `customForbiddenPairs` | 禁止相鄰的兩人名單（`[["A", "B"], ...]`） |
-| `constraints` | 更細緻的位置約束（見下表） |
+| 欄位                          | 說明                                                                                         |
+|-------------------------------|----------------------------------------------------------------------------------------------|
+| `diagonalsAreNeighbors`       | 斜對角是否視為相鄰（預設 `false`）                                                           |
+| `crossAisleAreNeighbors`      | 隔著走廊（空行／空列）相對而坐是否視為相鄰（預設 `true`）                                    |
+| `enableBuddyMatching`         | 啟用搭檔配對，A 組每人需有至少一位 B 組鄰座（預設 `false`）                                  |
+| `doBuddyRotate`               | 避免與原本的搭檔重逢，強制換新搭檔（預設 `true`）                                            |
+| `prioritizeBuddyPairPosition` | 搭檔方位偏好（soft，僅引導搜尋）：`LeftAndRight`／`FrontAndBack`／`AllAreAcceptable`（預設） |
+| `customForbiddenPairs`        | 禁止相鄰的兩人名單（`[["A", "B"], ...]`）                                                    |
+| `constraints`                 | 更細緻的位置約束（見下表）                                                                   |
 
 `constraints` 支援的型別：
 
-| type | 欄位 | 效果 |
-| --- | --- | --- |
-| `FORCEROW` | `name`, `rowIdx` | 將某人固定在指定列 |
-| `FORBIDROW` | `name`, `rowIdx` | 禁止某人坐在指定列 |
-| `FORCECOL` | `name`, `colIdx` | 將某人固定在指定行 |
-| `FORBIDCOL` | `name`, `colIdx` | 禁止某人坐在指定行 |
-| `FORBIDSHAREROW` | `name1`, `name2` | 兩人不得在同一列 |
-| `FORBIDSHARECOL` | `name1`, `name2` | 兩人不得在同一行 |
+| type             | 欄位             | 效果               |
+|------------------|------------------|--------------------|
+| `FORCEROW`       | `name`, `rowIdx` | 將某人固定在指定列 |
+| `FORBIDROW`      | `name`, `rowIdx` | 禁止某人坐在指定列 |
+| `FORCECOL`       | `name`, `colIdx` | 將某人固定在指定行 |
+| `FORBIDCOL`      | `name`, `colIdx` | 禁止某人坐在指定行 |
+| `FORBIDSHAREROW` | `name1`, `name2` | 兩人不得在同一列   |
+| `FORBIDSHARECOL` | `name1`, `name2` | 兩人不得在同一行   |
 
 約束可能互相衝突（例如同時把同一人固定到兩列）；若洗牌失敗，請檢查 JSON 並嘗試放寬約束。修改約束後重新洗牌即可套用。
 
+## 搭檔配對（Buddy Pairing）
+
+適合「A 類學生與 B 類學生結對互助、每次大換座都要換新搭檔」的場景。在「算法約束 (Constraints) → 約束管理」（`Ctrl + Shift + M`）的「搭檔配對」區塊設定：
+
+1. **輸入名單**：可手動新增，或按「匯入名單（CSV／XLSX）」載入檔案。格式為第一欄組別（A、B 各一列，支援 `A`／`A組`／`A類` 標籤）、其後各欄為成員姓名；CSV 需為 UTF-8，XLSX 取第一個工作表：
+
+```csv
+A組, 張三, 李四
+B組, 王五, 趙六
+```
+
+匯入成功後會自動勾選「啟用搭檔配對」。兩組人數不須相等，每人只能歸屬一組。
+
+2. **啟用搭檔配對**：洗牌時要求每位 A 組成員身旁至少有 *一位* B 組成員；身邊同時有兩位 B 組成員也符合要求。「相鄰」的範圍會受「斜對角視為相鄰」與「隔走廊相對視為相鄰」影響。
+
+3. **避免與原本的搭檔重逢**（預設開啟）：A 組成員不得再與洗牌前相鄰的 B 組成員相鄰，達成「強制結對輪換」。此選項與「允許與原本的鄰座相鄰」各自獨立。
+
+4. **搭檔方位偏好**（soft 偏好，僅引導搜尋、不保證達成、不影響可解性）：可選「左右相鄰（同一橫排）」「前後相鄰（同一豎排）」或「無方位偏好（預設）」。
+
+若 B 組人數不足以讓每位 A 組成員都有鄰座、或與其他約束衝突，洗牌會失敗，請調整名單或放寬設定。
+
+
 ## 鍵盤快捷鍵
 
-| 快捷鍵 | 功能 |
-| --- | --- |
-| `Ctrl + I` | 導入座位排佈 |
-| `Ctrl + E` | 導出座位排佈 |
-| `Ctrl + Shift + C` | 導入顏色配置 |
-| `Ctrl + Alt + C` | 重設顏色配置 |
+| 快捷鍵             | 功能           |
+|--------------------|----------------|
+| `Ctrl + I`         | 導入座位排佈   |
+| `Ctrl + E`         | 導出座位排佈   |
+| `Ctrl + Shift + C` | 導入顏色配置   |
+| `Ctrl + Alt + C`   | 重設顏色配置   |
 | `Ctrl + Shift + K` | 導入演算法約束 |
-| `Ctrl + Alt + K` | 重設演算法約束 |
-| `Ctrl + Shift + M` | 開啟約束管理 |
-| `Enter` | 洗牌 |
+| `Ctrl + Alt + K`   | 重設演算法約束 |
+| `Ctrl + Shift + M` | 開啟約束管理   |
+| `Enter`            | 洗牌           |
 
 ## 技術架構（簡介）
 

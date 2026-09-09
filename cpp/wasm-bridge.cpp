@@ -26,77 +26,105 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
     register_vector<Grid>("GridVector");
 
     //  struct Constraints
+    RET_VAL_DISCARDED
     value_object<ForceRow>("ForceRow")
-        .field("first", &ForceRow::first)
-        .field("second", &ForceRow::second);
+        .field("first", &ForceRow::name)
+        .field("second", &ForceRow::rowIdx);
 
+    RET_VAL_DISCARDED
     value_object<ForbidRow>("ForbidRow")
-        .field("first", &ForbidRow::first)
-        .field("second", &ForbidRow::second);
+        .field("first", &ForbidRow::name)
+        .field("second", &ForbidRow::rowIdx);
 
+    RET_VAL_DISCARDED
     value_object<ForceCol>("ForceCol")
-        .field("first", &ForceCol::first)
-        .field("second", &ForceCol::second);
+        .field("first", &ForceCol::name)
+        .field("second", &ForceCol::colIdx);
 
+    RET_VAL_DISCARDED
     value_object<ForbidCol>("ForbidCol")
-        .field("first", &ForbidCol::first)
-        .field("second", &ForbidCol::second);
+        .field("first", &ForbidCol::name)
+        .field("second", &ForbidCol::colIdx);
 
+    RET_VAL_DISCARDED
     value_object<ForbidShareRow>("ForbidShareRow")
-        .field("first", &ForbidShareRow::first)
-        .field("second", &ForbidShareRow::second);
+        .field("first", &ForbidShareRow::name1)
+        .field("second", &ForbidShareRow::name2);
 
+    RET_VAL_DISCARDED
     value_object<ForbidShareCol>("ForbidShareCol")
-        .field("first", &ForbidShareCol::first)
-        .field("second", &ForbidShareCol::second);
+        .field("first", &ForbidShareCol::name1)
+        .field("second", &ForbidShareCol::name2);
 
     //  struct ShuffleConfig
+    RET_VAL_DISCARDED
+    enum_<PrioritizeBuddyPairPosition>("PrioritizeBuddyPairPosition", enum_value_type::string)
+        .value("LeftAndRight", PrioritizeBuddyPairPosition::LeftAndRight)
+        .value("FrontAndBack", PrioritizeBuddyPairPosition::FrontAndBack)
+        .value("AllAreAcceptable", PrioritizeBuddyPairPosition::AllAreAcceptable);
+
+    RET_VAL_DISCARDED
     class_<ShuffleConfig>("ShuffleConfig")
         .constructor<>()
         .property("allowFixedPoints", &ShuffleConfig::allowFixedPoints)
         .property("allowOriginalNeighbors", &ShuffleConfig::allowOriginalNeighbors)
         .property("diagonalsAreNeighbors", &ShuffleConfig::diagonalsAreNeighbors)
-        .function("setAllowFixedPoints", &ShuffleConfig::setAllowFixedPoints, allow_raw_pointers())
-        .function("setAllowOriginalNeighbors", &ShuffleConfig::setAllowOriginalNeighbors, allow_raw_pointers())
-        .function("setDiagonalsAreNeighbors", &ShuffleConfig::setDiagonalsAreNeighbors, allow_raw_pointers())
-        .function("addForbiddenPair", &ShuffleConfig::addForbiddenPair, allow_raw_pointers())
-        .function("forceRow", &ShuffleConfig::forceRow, allow_raw_pointers())
-        .function("forbidRow", &ShuffleConfig::forbidRow, allow_raw_pointers())
-        .function("forceCol", &ShuffleConfig::forceCol, allow_raw_pointers())
-        .function("forbidCol", &ShuffleConfig::forbidCol, allow_raw_pointers())
-        .function("forbidShareRow", &ShuffleConfig::forbidShareRow, allow_raw_pointers())
-        .function("forbidShareCol", &ShuffleConfig::forbidShareCol, allow_raw_pointers());
+        .property("crossAisleAreNeighbors", &ShuffleConfig::crossAisleAreNeighbors)
+        .property("enableBuddyMatching", &ShuffleConfig::enableBuddyMatching)
+        .function("setAllowFixedPoints", &ShuffleConfig::setAllowFixedPoints)
+        .function("setAllowOriginalNeighbors", &ShuffleConfig::setAllowOriginalNeighbors)
+        .function("setDiagonalsAreNeighbors", &ShuffleConfig::setDiagonalsAreNeighbors)
+        .function("addForbiddenPair", &ShuffleConfig::addForbiddenPair)
+        .function("forceRow", &ShuffleConfig::forceRow)
+        .function("forbidRow", &ShuffleConfig::forbidRow)
+        .function("forceCol", &ShuffleConfig::forceCol)
+        .function("forbidCol", &ShuffleConfig::forbidCol)
+        .function("forbidShareRow", &ShuffleConfig::forbidShareRow)
+        .function("forbidShareCol", &ShuffleConfig::forbidShareCol)
+        .function("setCrossAisleAreNeighbors", &ShuffleConfig::setCrossAisleAreNeighbors)
+        .function("setEnableBuddyMatching", &ShuffleConfig::setEnableBuddyMatching)
+        .function("setDoBuddyRotate", &ShuffleConfig::setDoBuddyRotate)
+        .function("addBuddyPair", &ShuffleConfig::addBuddyPair)
+        .function("setBuddyGroups", &ShuffleConfig::setBuddyGroups)
+        .function("setPrioritizeBuddyPairPosition", &ShuffleConfig::setPrioritizeBuddyPairPosition);
 
     //  class GridShuffler
+    RET_VAL_DISCARDED
     value_object<AnnealingConfig>("AnnealingConfig")
         .field("initialTemperature", &AnnealingConfig::initialTemperature)
         .field("coolingRate", &AnnealingConfig::coolingRate)
         .field("maxSteps", &AnnealingConfig::maxSteps)
         .field("maxAttempts", &AnnealingConfig::maxAttempts);
 
+    RET_VAL_DISCARDED
     value_object<PenaltyWeights>("PenaltyWeights")
         .field("fixedPoint", &PenaltyWeights::fixedPoint)
         .field("absolutePosition", &PenaltyWeights::absolutePosition)
         .field("originalNeighbor", &PenaltyWeights::originalNeighbor)
         .field("customForbidden", &PenaltyWeights::customForbidden)
-        .field("forbidShare", &PenaltyWeights::forbidShare);
+        .field("forbidShare", &PenaltyWeights::forbidShare)
+        .field("buddyPreference", &PenaltyWeights::buddyPreference);
 
+    RET_VAL_DISCARDED
     enum_<FeasibilityStatus>("FeasibilityStatus", enum_value_type::number)
         .value("Feasible", FeasibilityStatus::Feasible)
         .value("Unsatisfiable", FeasibilityStatus::Unsatisfiable)
         .value("Unknown", FeasibilityStatus::Unknown);
 
+    RET_VAL_DISCARDED
     value_object<FeasibilityReport>("FeasibilityReport")
         .field("status", &FeasibilityReport::status)
         .field("layer", &FeasibilityReport::layer)
         .field("reason", &FeasibilityReport::reason);
 
+    RET_VAL_DISCARDED
     enum_<ShuffleError>("ShuffleError", enum_value_type::string)
         .value("EmptyGrid", ShuffleError::EmptyGrid)
         .value("Unsatisfiable", ShuffleError::Unsatisfiable)
         .value("MaxAttemptsReached", ShuffleError::MaxAttemptsReached)
         .value("Unknown", ShuffleError::Unknown);
 
+    RET_VAL_DISCARDED
     value_object<ShuffleReport>("ShuffleReport")
         .field("success", &ShuffleReport::success)
         .field("doneAtAttempt", &ShuffleReport::doneAtAttempt)
@@ -104,6 +132,7 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .field("tookMUS", &ShuffleReport::tookMUS)
         .field("error", &ShuffleReport::error);
 
+    RET_VAL_DISCARDED
     class_<Grid>("Grid")
         .constructor<>()
         .constructor<int, int>()
@@ -121,18 +150,24 @@ EMSCRIPTEN_BINDINGS(GridShufflerModule) {
         .function("toCSVString", &Grid::toCSVString)
         .class_function("fromCSV", &Grid::fromCSVString);
 
+    RET_VAL_DISCARDED
     class_<GridShuffler>("GridShuffler")
         .constructor<>()
         .function("getShuffledGridCount", &GridShuffler::getShuffledGridCount)
-        .function("setGrid", &GridShuffler::setGrid, allow_raw_pointers())
-        .function("setConfig", &GridShuffler::setConfig, allow_raw_pointers())
-        .function("setAnnealingConfig", &GridShuffler::setAnnealingConfig, allow_raw_pointers())
+        .function("setGrid", &GridShuffler::setGrid)
+        .function("setConfig", &GridShuffler::setConfig)
+        .function("setAnnealingConfigFixed", select_overload<void (const AnnealingConfig&)>(&GridShuffler::setAnnealingConfig))
+        .function("setAnnealingConfigDynamic", optional_override([](GridShuffler& self, const val& func) {
+            self.setAnnealingConfig([func](const int gridSize) -> AnnealingConfig {
+                return func(gridSize).as<AnnealingConfig>();
+            });
+        }))
         .function("setPenaltyWeights", &GridShuffler::setPenaltyWeights)
         .function("getOriginalGrid", &GridShuffler::getOriginalGrid)
         .function("getGrid", select_overload<const Grid& () const noexcept>(&GridShuffler::getGrid))
         .function("getGridAt", select_overload<const Grid& (int) const>(&GridShuffler::getGrid))
         .function("shuffle", optional_override([](GridShuffler& self) {
-            auto res = self.shuffle();
+            const auto res = self.shuffle();
             ShuffleReport report;
             if (res.has_value()) {
                 report.success = true;

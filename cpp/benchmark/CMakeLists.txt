@@ -24,5 +24,4 @@ target_compile_definitions(
 target_link_libraries(
     seat_allocator_vue_algo_benchmark PRIVATE
         benchmark::benchmark
-        -lstdc++exp
 )

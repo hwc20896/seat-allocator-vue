@@ -2,41 +2,42 @@
 
 #include <variant>
 #include <string>
+#include "utils.hpp"
 
 struct ForceRow {
-    std::string first;
-    int second;
-    constexpr auto operator<=>(const ForceRow&) const noexcept = default;
+    std::string name;
+    int rowIdx;
+    CONSTEXPR_DEFAULT_EQUALITY(ForceRow)
 };
 
 struct ForbidRow {
-    std::string first;
-    int second;
-    constexpr auto operator<=>(const ForbidRow&) const noexcept = default;
+    std::string name;
+    int rowIdx;
+    CONSTEXPR_DEFAULT_EQUALITY(ForbidRow)
 };
 
 struct ForceCol {
-    std::string first;
-    int second;
-    constexpr auto operator<=>(const ForceCol&) const noexcept = default;
+    std::string name;
+    int colIdx;
+    CONSTEXPR_DEFAULT_EQUALITY(ForceCol)
 };
 
 struct ForbidCol {
-    std::string first;
-    int second;
-    constexpr auto operator<=>(const ForbidCol&) const noexcept = default;
+    std::string name;
+    int colIdx;
+    CONSTEXPR_DEFAULT_EQUALITY(ForbidCol)
 };
 
 struct ForbidShareRow {
-    std::string first;
-    std::string second;
-    constexpr auto operator<=>(const ForbidShareRow&) const noexcept = default;
+    std::string name1;
+    std::string name2;
+    CONSTEXPR_DEFAULT_EQUALITY(ForbidShareRow)
 };
 
 struct ForbidShareCol {
-    std::string first;
-    std::string second;
-    constexpr auto operator<=>(const ForbidShareCol&) const noexcept = default;
+    std::string name1;
+    std::string name2;
+    CONSTEXPR_DEFAULT_EQUALITY(ForbidShareCol)
 };
 
 using Constraint = std::variant<ForceRow, ForbidRow, ForceCol, ForbidCol, ForbidShareRow, ForbidShareCol>;

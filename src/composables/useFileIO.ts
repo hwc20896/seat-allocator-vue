@@ -25,10 +25,8 @@ export function useFileIO(wasmModule: ShallowRef<MainModule | null>) {
           if (!ws) return resolve(new wasmModule.value!.Grid());
           const raw: unknown[][] = XLSX.utils.sheet_to_json(ws, { header: 1, raw: false });
 
-          const filteredRows = raw.filter(
-            (row) =>
-              row.length > 0 &&
-              row.some((cell) => cell !== null && cell !== undefined && cell !== ''),
+          const filteredRows = raw.filter((row) =>
+            row.some((cell) => cell !== null && cell !== undefined && cell !== ''),
           );
 
           if (filteredRows.length === 0) return resolve(new wasmModule.value!.Grid());

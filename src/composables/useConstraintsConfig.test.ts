@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useConstraintsConfig } from './useConstraintsConfig';
+import type { ImportedConstraint } from '@/utils/JSONTypes.ts';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -69,7 +70,7 @@ describe('useConstraintsConfig', () => {
       }),
     );
 
-    const cfg = buildWasmConfig({ ShuffleConfig: FakeShuffleConfig } as never);
+    buildWasmConfig({ ShuffleConfig: FakeShuffleConfig } as never);
     expect(spies.forbidRow).toHaveBeenCalledWith('王小明', 0);
     expect(spies.forceCol).toHaveBeenCalledWith('陳小美', 1);
     expect(spies.forbidCol).toHaveBeenCalledWith('林小華', 2);
@@ -154,9 +155,14 @@ describe('useConstraintsConfig', () => {
       allowFixedPoints: true,
       allowOriginalNeighbors: true,
       diagonalsAreNeighbors: false,
+      crossAisleAreNeighbors: true,
+      enableBuddyMatching: false,
+      doBuddyRotate: true,
       customForbiddenPairs: [],
       constraints: [],
-    });
+      buddyGroups: [],
+      prioritizeBuddyPairPosition: 'AllAreAcceptable',
+    } satisfies ImportedConstraint);
     expect(parsedConfig.value).toBeNull();
   });
 
@@ -189,6 +195,30 @@ describe('useConstraintsConfig', () => {
     buildWasmConfig({ ShuffleConfig: FakeShuffleConfig } as never);
     expect(setAllowOriginalNeighbors).toHaveBeenCalledWith(true);
     expect(setDiagonalsAreNeighbors).toHaveBeenCalledWith(false);
+  });
+
+  it('buildWasmConfig 套用 prioritizeBuddyPairPosition', () => {
+    const setPrioritizeSpy = vi.fn();
+    class FakeShuffleConfig {
+      setPrioritizeBuddyPairPosition = setPrioritizeSpy;
+    }
+    const { loadConstraints, buildWasmConfig } = useConstraintsConfig();
+    loadConstraints(JSON.stringify({ prioritizeBuddyPairPosition: 'FrontAndBack' }));
+    buildWasmConfig({ ShuffleConfig: FakeShuffleConfig } as never);
+    expect(setPrioritizeSpy).toHaveBeenCalledWith('FrontAndBack');
+  });
+
+  it('prioritizeBuddyPairPosition 值非法時忽略（不呼叫 setter）', () => {
+    const setPrioritizeSpy = vi.fn();
+    class FakeShuffleConfig {
+      setPrioritizeBuddyPairPosition = setPrioritizeSpy;
+    }
+    const { loadConstraints, buildWasmConfig } = useConstraintsConfig();
+    expect(
+      loadConstraints(JSON.stringify({ prioritizeBuddyPairPosition: 'DiagonalOnly' })),
+    ).toBe(true);
+    buildWasmConfig({ ShuffleConfig: FakeShuffleConfig } as never);
+    expect(setPrioritizeSpy).not.toHaveBeenCalled();
   });
 
   it('constraints 含 null 條目時跳過', () => {

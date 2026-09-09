@@ -1,13 +1,14 @@
 #pragma once
 
-#include <vector>
 #include <algorithm>
-#include <limits>
-#include <stdexcept>
 #include <bit>
-#include <numeric>
+#include <cstdint>
 #include <functional>
+#include <limits>
+#include <numeric>
 #include <ranges>
+#include <stdexcept>
+#include <vector>
 
 class DynamicBitset final {
     public:
@@ -67,16 +68,13 @@ class DynamicBitset final {
 };
 
 constexpr DynamicBitset::DynamicBitset(const SizeType size)
-    : bitCount_(size),
-      data_((size + BITS_PER_WORD - 1) / BITS_PER_WORD, 0) {}
+    : bitCount_(size), data_((size + BITS_PER_WORD - 1) / BITS_PER_WORD, 0) {}
 
 constexpr void DynamicBitset::set(const SizeType index, const bool value) {
     if (index >= bitCount_) {
         throw std::out_of_range(
-            "DynamicBitset::set: Index out of range. Index: " +
-            std::to_string(index) +
-            ", bitCount_: " +
-            std::to_string(bitCount_)
+            "DynamicBitset::set: Index out of range. Index: " + std::to_string(index) +
+            ", bitCount_: " + std::to_string(bitCount_)
         );
     }
 
@@ -93,10 +91,8 @@ constexpr void DynamicBitset::set(const SizeType index, const bool value) {
 constexpr bool DynamicBitset::test(const SizeType index) const {
     if (index >= bitCount_) {
         throw std::out_of_range(
-            "DynamicBitset::test: Index out of range. Index: " +
-            std::to_string(index) +
-            ", bitCount_: " +
-            std::to_string(bitCount_)
+            "DynamicBitset::test: Index out of range. Index: " + std::to_string(index) +
+            ", bitCount_: " + std::to_string(bitCount_)
         );
     }
 
@@ -122,9 +118,7 @@ constexpr void DynamicBitset::fill(const bool value) noexcept {
 }
 
 constexpr DynamicBitset::SizeType DynamicBitset::trueCount() const noexcept {
-    return std::transform_reduce(
-        data_.begin(), data_.end(), 0ULL, std::plus<SizeType>(), &std::popcount<SizeType>
-    );
+    return std::transform_reduce(data_.begin(), data_.end(), 0ULL, std::plus{}, &std::popcount<SizeType>);
 }
 
 constexpr DynamicBitset::SizeType DynamicBitset::falseCount() const noexcept {
@@ -133,9 +127,10 @@ constexpr DynamicBitset::SizeType DynamicBitset::falseCount() const noexcept {
 
 constexpr DynamicBitset DynamicBitset::operator&(const DynamicBitset& other) const {
     if (bitCount_ != other.bitCount_) {
-        throw std::invalid_argument("DynamicBitset::operator&: sizes must match. bitCount_: " +
-                                    std::to_string(bitCount_) + ", other.bitCount_: " +
-                                    std::to_string(other.bitCount_));
+        throw std::invalid_argument(
+            "DynamicBitset::operator&: sizes must match. bitCount_: " + std::to_string(bitCount_) +
+            ", other.bitCount_: " + std::to_string(other.bitCount_)
+        );
     }
     DynamicBitset result = *this;
     return result &= other;
@@ -143,9 +138,10 @@ constexpr DynamicBitset DynamicBitset::operator&(const DynamicBitset& other) con
 
 constexpr DynamicBitset DynamicBitset::operator|(const DynamicBitset& other) const {
     if (bitCount_ != other.bitCount_) {
-        throw std::invalid_argument("DynamicBitset::operator|: sizes must match. bitCount_: " +
-                                    std::to_string(bitCount_) + ", other.bitCount_: " +
-                                    std::to_string(other.bitCount_));
+        throw std::invalid_argument(
+            "DynamicBitset::operator|: sizes must match. bitCount_: " + std::to_string(bitCount_) +
+            ", other.bitCount_: " + std::to_string(other.bitCount_)
+        );
     }
     DynamicBitset result = *this;
     return result |= other;
@@ -153,9 +149,10 @@ constexpr DynamicBitset DynamicBitset::operator|(const DynamicBitset& other) con
 
 constexpr DynamicBitset DynamicBitset::operator^(const DynamicBitset& other) const {
     if (bitCount_ != other.bitCount_) {
-        throw std::invalid_argument("DynamicBitset::operator^: sizes must match. bitCount_: " +
-                                    std::to_string(bitCount_) + ", other.bitCount_: " +
-                                    std::to_string(other.bitCount_));
+        throw std::invalid_argument(
+            "DynamicBitset::operator^: sizes must match. bitCount_: " + std::to_string(bitCount_) +
+            ", other.bitCount_: " + std::to_string(other.bitCount_)
+        );
     }
     DynamicBitset result = *this;
     return result ^= other;
@@ -163,8 +160,8 @@ constexpr DynamicBitset DynamicBitset::operator^(const DynamicBitset& other) con
 
 constexpr DynamicBitset DynamicBitset::operator~() const {
     DynamicBitset result = *this;
-    for (size_t i = 0; i < result.data_.size(); ++i) {
-        result.data_[i] = ~result.data_[i];
+    for (SizeType& i : result.data_) {
+        i = ~i;
     }
 
     if (const SizeType unusedBits = bitCount_ % BITS_PER_WORD) {
@@ -176,9 +173,10 @@ constexpr DynamicBitset DynamicBitset::operator~() const {
 
 constexpr DynamicBitset& DynamicBitset::operator&=(const DynamicBitset& other) {
     if (bitCount_ != other.bitCount_) {
-        throw std::invalid_argument("DynamicBitset::operator&=: sizes must match. bitCount_: " +
-                                    std::to_string(bitCount_) + ", other.bitCount_: " +
-                                    std::to_string(other.bitCount_));
+        throw std::invalid_argument(
+            "DynamicBitset::operator&=: sizes must match. bitCount_: " + std::to_string(bitCount_) +
+            ", other.bitCount_: " + std::to_string(other.bitCount_)
+        );
     }
 
     std::ranges::transform(data_, other.data_, data_.begin(), std::bit_and{});
@@ -187,9 +185,10 @@ constexpr DynamicBitset& DynamicBitset::operator&=(const DynamicBitset& other) {
 
 constexpr DynamicBitset& DynamicBitset::operator|=(const DynamicBitset& other) {
     if (bitCount_ != other.bitCount_) {
-        throw std::invalid_argument("DynamicBitset::operator|=: sizes must match. bitCount_: " +
-                                    std::to_string(bitCount_) + ", other.bitCount_: " +
-                                    std::to_string(other.bitCount_));
+        throw std::invalid_argument(
+            "DynamicBitset::operator|=: sizes must match. bitCount_: " + std::to_string(bitCount_) +
+            ", other.bitCount_: " + std::to_string(other.bitCount_)
+        );
     }
 
     std::ranges::transform(data_, other.data_, data_.begin(), std::bit_or{});
@@ -198,9 +197,10 @@ constexpr DynamicBitset& DynamicBitset::operator|=(const DynamicBitset& other) {
 
 constexpr DynamicBitset& DynamicBitset::operator^=(const DynamicBitset& other) {
     if (bitCount_ != other.bitCount_) {
-        throw std::invalid_argument("DynamicBitset::operator^=: sizes must match. bitCount_: " +
-                                    std::to_string(bitCount_) + ", other.bitCount_: " +
-                                    std::to_string(other.bitCount_));
+        throw std::invalid_argument(
+            "DynamicBitset::operator^=: sizes must match. bitCount_: " + std::to_string(bitCount_) +
+            ", other.bitCount_: " + std::to_string(other.bitCount_)
+        );
     }
 
     std::ranges::transform(data_, other.data_, data_.begin(), std::bit_xor{});
@@ -229,9 +229,8 @@ constexpr bool DynamicBitset::all() const noexcept {
     }
 
     const SizeType remainder = bitCount_ % BITS_PER_WORD;
-    const SizeType expectedLastWord = (remainder == 0)
-        ? ~static_cast<SizeType>(0)
-        : (static_cast<SizeType>(1) << remainder) - 1;
+    const SizeType expectedLastWord =
+        (remainder == 0) ? ~static_cast<SizeType>(0) : (static_cast<SizeType>(1) << remainder) - 1;
 
     return data_.back() == expectedLastWord;
 }

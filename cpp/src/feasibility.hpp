@@ -1,13 +1,13 @@
 #pragma once
 
 #include <algorithm>
+#include <functional>
 #include <optional>
 #include <ranges>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <functional>
 
 #include "configs.hpp"
 #include "dynamic-bitset.hpp"
@@ -69,27 +69,22 @@ namespace feasibility_detail {
 // 每個（去重後的）元素的可放位置資訊
 struct ElementProfile {
     std::string name;
-    int count = 0;              // 在 grid 中出現次數（同名格子數）
-    int forcedRow = -1;         // 鎖定行（-1 = 未鎖定）
-    int forcedCol = -1;         // 鎖定列（-1 = 未鎖定）
-    DynamicBitset rows;         // 可放行遮罩（1 = 可放）
-    DynamicBitset cols;         // 可放列遮罩（1 = 可放）
-    std::vector<int> positions; // 展開後的可放位置（已剔除空格位置）
+    int count = 0;               // 在 grid 中出現次數（同名格子數）
+    int forcedRow = -1;          // 鎖定行（-1 = 未鎖定）
+    int forcedCol = -1;          // 鎖定列（-1 = 未鎖定）
+    DynamicBitset rows;          // 可放行遮罩（1 = 可放）
+    DynamicBitset cols;          // 可放列遮罩（1 = 可放）
+    std::vector<int> positions;  // 展開後的可放位置（已剔除空格位置）
 
     explicit ElementProfile(std::string name_, const uint64_t rowCount, const uint64_t colCount)
-        : name(std::move(name_)),
-          rows{rowCount},
-          cols{colCount}
-    {
+        : name(std::move(name_)), rows{rowCount}, cols{colCount} {
         rows.fill(true);
         cols.fill(true);
     }
 };
 
-std::optional<std::string> layer1(
-    const Grid& grid,
-    const ShuffleConfig& cfg,
-    std::vector<ElementProfile>& profiles
+inline std::optional<std::string> layer1(
+    const Grid& grid, const ShuffleConfig& cfg, std::vector<ElementProfile>& profiles
 ) {
     const int rows = grid.rowCount();
     const int cols = grid.colCount();
@@ -110,47 +105,46 @@ std::optional<std::string> layer1(
 
     std::vector<StringPair> shareRows, shareCols;
     for (const auto& c : cfg.constraints) {
-        std::visit(overloaded{
-            [&](const ForceRow& c2) {
-                const auto it = nameToIdx.find(c2.first);
-                if (it != nameToIdx.end() && c2.second >= 0 && c2.second < rows) {
-                    // force 到行 r：其他行全部關閉；目標行若被 forbid 過則保持關閉
-                    auto& p = profiles[it->second];
-                    p.forcedRow = c2.second;
-                    for (int r = 0; r < rows; ++r) {
-                        if (r != c2.second) p.rows.set(r, false);
+        std::visit(
+            overloaded{
+                [&](const ForceRow& c2) {
+                    const auto it = nameToIdx.find(c2.name);
+                    if (it != nameToIdx.end() && c2.rowIdx >= 0 && c2.rowIdx < rows) {
+                        // force 到行 r：其他行全部關閉；目標行若被 forbid 過則保持關閉
+                        auto& p = profiles[it->second];
+                        p.forcedRow = c2.rowIdx;
+                        for (int r = 0; r < rows; ++r) {
+                            if (r != c2.rowIdx) p.rows.set(r, false);
+                        }
                     }
-                }
-            },
-            [&](const ForbidRow& c2) {
-                const auto it = nameToIdx.find(c2.first);
-                if (it != nameToIdx.end() && c2.second >= 0 && c2.second < rows) {
-                    profiles[it->second].rows.set(c2.second, false);
-                }
-            },
-            [&](const ForceCol& c2) {
-                const auto it = nameToIdx.find(c2.first);
-                if (it != nameToIdx.end() && c2.second >= 0 && c2.second < cols) {
-                    auto& p = profiles[it->second];
-                    p.forcedCol = c2.second;
-                    for (int col = 0; col < cols; ++col) {
-                        if (col != c2.second) p.cols.set(col, false);
+                },
+                [&](const ForbidRow& c2) {
+                    const auto it = nameToIdx.find(c2.name);
+                    if (it != nameToIdx.end() && c2.rowIdx >= 0 && c2.rowIdx < rows) {
+                        profiles[it->second].rows.set(c2.rowIdx, false);
                     }
-                }
+                },
+                [&](const ForceCol& c2) {
+                    const auto it = nameToIdx.find(c2.name);
+                    if (it != nameToIdx.end() && c2.colIdx >= 0 && c2.colIdx < cols) {
+                        auto& p = profiles[it->second];
+                        p.forcedCol = c2.colIdx;
+                        for (int col = 0; col < cols; ++col) {
+                            if (col != c2.colIdx) p.cols.set(col, false);
+                        }
+                    }
+                },
+                [&](const ForbidCol& c2) {
+                    const auto it = nameToIdx.find(c2.name);
+                    if (it != nameToIdx.end() && c2.colIdx >= 0 && c2.colIdx < cols) {
+                        profiles[it->second].cols.set(c2.colIdx, false);
+                    }
+                },
+                [&](const ForbidShareRow& c2) { shareRows.emplace_back(c2.name1, c2.name2); },
+                [&](const ForbidShareCol& c2) { shareCols.emplace_back(c2.name1, c2.name2); },
             },
-            [&](const ForbidCol& c2) {
-                const auto it = nameToIdx.find(c2.first);
-                if (it != nameToIdx.end() && c2.second >= 0 && c2.second < cols) {
-                    profiles[it->second].cols.set(c2.second, false);
-                }
-            },
-            [&](const ForbidShareRow& c2) {
-                shareRows.emplace_back(c2.first, c2.second);
-            },
-            [&](const ForbidShareCol& c2) {
-                shareCols.emplace_back(c2.first, c2.second);
-            },
-        }, c);
+            c
+        );
     }
 
     // 展開可行域並檢查是否塞得下
@@ -166,8 +160,7 @@ std::optional<std::string> layer1(
             }
         }
         if (p.positions.size() < static_cast<size_t>(p.count)) {
-            return "元素 '" + p.name + "' 的可放位置（" +
-                   std::to_string(p.positions.size()) + " 格）少於出現次數（" +
+            return "元素 '" + p.name + "' 的可放位置（" + std::to_string(p.positions.size()) + " 格）少於出現次數（" +
                    std::to_string(p.count) + " 次）";
         }
     }
@@ -180,20 +173,19 @@ std::optional<std::string> layer1(
     }
     for (int r = 0; r < rows; ++r) {
         if (forcedPerRow[r] > cols) {
-            return "第 " + std::to_string(r + 1) + " 行被鎖定 " +
-                   std::to_string(forcedPerRow[r]) + " 個元素，超過容量 " +
-                   std::to_string(cols);
+            return "第 " + std::to_string(r + 1) + " 行被鎖定 " + std::to_string(forcedPerRow[r]) +
+                   " 個元素，超過容量 " + std::to_string(cols);
         }
     }
     for (int c = 0; c < cols; ++c) {
         if (forcedPerCol[c] > rows) {
-            return "第 " + std::to_string(c + 1) + " 列被鎖定 " +
-                   std::to_string(forcedPerCol[c]) + " 個元素，超過容量 " +
-                   std::to_string(rows);
+            return "第 " + std::to_string(c + 1) + " 列被鎖定 " + std::to_string(forcedPerCol[c]) +
+                   " 個元素，超過容量 " + std::to_string(rows);
         }
     }
 
-    const auto checkShare = [&](const std::vector<StringPair>& edges, const auto& domain) -> std::optional<std::string> {
+    const auto checkShare = [&](const std::vector<StringPair>& edges,
+                                const auto& domain) -> std::optional<std::string> {
         for (const auto& [a, b] : edges) {
             if (a == b) continue;
             const auto ia = nameToIdx.find(a);
@@ -207,8 +199,7 @@ std::optional<std::string> layer1(
             const DynamicBitset& db = std::invoke(domain, pb);
 
             if ((da & db).any()) {
-                return "元素 '" + a + "' 與 '" + b +
-                       "' 都被鎖定在同一個位置範圍，卻被 forbidShare 禁止共行/共列";
+                return "元素 '" + a + "' 與 '" + b + "' 都被鎖定在同一個位置範圍，卻被 forbidShare 禁止共行/共列";
             }
         }
         return std::nullopt;
@@ -220,12 +211,7 @@ std::optional<std::string> layer1(
     return std::nullopt;
 }
 
-bool tryAugment(
-    const int e,
-    const Graph& adj,
-    std::vector<int>& matchPos,
-    DynamicBitset& visited
-) {
+inline bool tryAugment(const int e, const Graph& adj, std::vector<int>& matchPos, DynamicBitset& visited) {
     for (const int pos : adj[e]) {
         if (visited.test(pos)) continue;
         visited.set(pos, true);
@@ -237,10 +223,7 @@ bool tryAugment(
     return false;
 }
 
-std::optional<std::string> layer2(
-    const Grid& grid,
-    const std::vector<ElementProfile>& profiles
-) {
+std::optional<std::string> layer2(const Grid& grid, const std::vector<ElementProfile>& profiles) {
     // 展開節點：同名元素（count 次）共享同一個可行域
     std::vector<std::vector<int>> adj;
     for (const auto& p : profiles) {
@@ -265,21 +248,19 @@ struct ColoringOutcome {
     bool budgetExceeded = false;
 };
 
-ColoringOutcome solveColoring(
-    const DynamicBitset& adj,               // 衝突邊（n×n 位矩陣，adj[v*n+u] = 有邊）
-    const int n,                            // 節點數
-    const std::vector<int>& forcedColor,    // 鎖定顏色（-1 = 未鎖定）
-    const int colorCount,                   // 顏色數（列數或行數）
-    const int colorCapacity,                // 每色容量（每行/列格數）
-    const int budget                        // 回溯節點預算
+inline ColoringOutcome solveColoring(
+    const DynamicBitset& adj,             // 衝突邊（n×n 位矩陣，adj[v*n+u] = 有邊）
+    const int n,                          // 節點數
+    const std::vector<int>& forcedColor,  // 鎖定顏色（-1 = 未鎖定）
+    const int colorCount,                 // 顏色數（列數或行數）
+    const int colorCapacity,              // 每色容量（每行/列格數）
+    const int budget                      // 回溯節點預算
 ) {
     std::vector color(n, -1);
     std::vector used(colorCount, 0);
     int nodes = 0;
 
-    const auto hasEdge = [&](const int v, const int u) {
-        return adj.test(static_cast<uint64_t>(v) * n + u);
-    };
+    const auto hasEdge = [&](const int v, const int u) { return adj.test(static_cast<uint64_t>(v) * n + u); };
 
     // 預著色：被 force 鎖定的元素直接指定顏色；與鄰居撞色 → 無解
     for (int v = 0; v < n; ++v) {
@@ -292,8 +273,7 @@ ColoringOutcome solveColoring(
         color[v] = forcedColor[v];
         ++used[forcedColor[v]];
     }
-    const int preColored =
-        static_cast<int>(std::ranges::count_if(color, [](const int c) { return c != -1; }));
+    const int preColored = static_cast<int>(std::ranges::count_if(color, [](const int c) { return c != -1; }));
 
     // 回傳：1 = 著色成功，0 = 無解，2 = 超預算
     auto dfs = [&](this auto&& self, const int depth) -> int {
@@ -325,8 +305,8 @@ ColoringOutcome solveColoring(
         for (int c = 0; c < colorCount; ++c) {
             if (used[c] >= colorCapacity) continue;
             if (std::ranges::any_of(std::views::iota(0, n), [&](const int u) {
-                return hasEdge(best, u) && color[u] == c;
-            })) {
+                    return hasEdge(best, u) && color[u] == c;
+                })) {
                 continue;
             }
             color[best] = c;
@@ -343,12 +323,9 @@ ColoringOutcome solveColoring(
     return {.feasible = r == 1, .budgetExceeded = r == 2};
 }
 
-std::optional<std::string> layer3(
-    const Grid& grid,
-    const ShuffleConfig& cfg,
-    const std::vector<ElementProfile>& profiles,
-    const FeasibilityOptions& opts,
-    bool& budgetExceeded
+inline std::optional<std::string> layer3(
+    const Grid& grid, const ShuffleConfig& cfg, const std::vector<ElementProfile>& profiles,
+    const FeasibilityOptions& opts, bool& budgetExceeded
 ) {
     const int rows = grid.rowCount();
     const int cols = grid.colCount();
@@ -360,15 +337,14 @@ std::optional<std::string> layer3(
 
     std::vector<StringPair> shareRows, shareCols;
     for (const auto& c : cfg.constraints) {
-        std::visit(overloaded{
-            [&](const ForbidShareRow& c2) {
-                shareRows.emplace_back(c2.first, c2.second);
+        std::visit(
+            overloaded{
+                [&](const ForbidShareRow& c2) { shareRows.emplace_back(c2.name1, c2.name2); },
+                [&](const ForbidShareCol& c2) { shareCols.emplace_back(c2.name1, c2.name2); },
+                [](const auto&) {},
             },
-            [&](const ForbidShareCol& c2) {
-                shareCols.emplace_back(c2.first, c2.second);
-            },
-            [](const auto&) {},
-        }, c);
+            c
+        );
     }
 
     // 對「行方向」與「列方向」各做一次著色
@@ -413,8 +389,7 @@ std::optional<std::string> layer3(
             return "著色檢查超出預算（此原因不會被回報，主函式會轉成 Unknown）";
         }
         if (!outcomeFeasible) {
-            return "存在 forbidShare 互斥群，無法在 " + std::to_string(colorCount) +
-                   " 個行/列內錯開";
+            return "存在 forbidShare 互斥群，無法在 " + std::to_string(colorCount) + " 個行/列內錯開";
         }
         return std::nullopt;
     };
@@ -424,13 +399,11 @@ std::optional<std::string> layer3(
     return std::nullopt;
 }
 
-}
+}  // namespace feasibility_detail
 
 [[nodiscard]]
-FeasibilityReport checkFeasibility(
-    const Grid& grid,
-    const ShuffleConfig& cfg,
-    const FeasibilityOptions& opts = {}
+inline FeasibilityReport checkFeasibility(
+    const Grid& grid, const ShuffleConfig& cfg, const FeasibilityOptions& opts = {}
 ) {
     if (grid.empty()) {
         return {.status = FeasibilityStatus::Unsatisfiable, .layer = "domain", .reason = "grid 為空，無從安排"};
@@ -452,7 +425,11 @@ FeasibilityReport checkFeasibility(
         bool budgetExceeded = false;
         if (const auto fail = feasibility_detail::layer3(grid, cfg, profiles, opts, budgetExceeded)) {
             if (budgetExceeded) {
-                return {.status = FeasibilityStatus::Unknown, .layer = "coloring", .reason = "著色檢查超出預算，無法判定（可調高 coloringNodeBudget）"};
+                return {
+                    .status = FeasibilityStatus::Unknown,
+                    .layer = "coloring",
+                    .reason = "著色檢查超出預算，無法判定（可調高 coloringNodeBudget）"
+                };
             }
             return {.status = FeasibilityStatus::Unsatisfiable, .layer = "coloring", .reason = *fail};
         }

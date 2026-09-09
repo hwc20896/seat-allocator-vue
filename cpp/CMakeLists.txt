@@ -5,8 +5,9 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_executable(alloc_algo
-    wasm-bridge.cpp
+add_executable(
+    alloc_algo
+        wasm-bridge.cpp
 )
 
 target_include_directories(
@@ -56,6 +57,13 @@ if(EMSCRIPTEN)
         list(APPEND WASM_COPY_COMMANDS
             COMMAND ${CMAKE_COMMAND} -E copy_if_different "${src}" "${dst}")
     endforeach()
+
+    add_custom_command(TARGET alloc_algo POST_BUILD
+        COMMAND ${CMAKE_COMMAND}
+            -DDTS_FILE=${CMAKE_CURRENT_BINARY_DIR}/alloc_algo.d.ts
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/patch-dts.cmake
+        COMMENT "Patching generated alloc_algo.d.ts types"
+    )
 
     add_custom_command(TARGET alloc_algo POST_BUILD
         ${WASM_COPY_COMMANDS}

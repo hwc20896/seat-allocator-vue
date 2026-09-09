@@ -52,6 +52,13 @@
               <span class="hover-hint">懸停查看說明</span>
             </span>
           </label>
+          <label class="switch-row">
+            <input v-model="state.crossAisleAreNeighbors" type="checkbox" />
+            <span :title="CROSS_AISLE_NOTE">
+              隔走廊相對視為相鄰
+              <span class="hover-hint">懸停查看說明</span>
+            </span>
+          </label>
         </section>
 
         <!-- 禁止配對 -->
@@ -133,12 +140,121 @@
           <p v-if="state.constraints.length === 0" class="empty-hint">尚未設定位置約束</p>
         </section>
 
+        <section class="section">
+          <div class="section-header">
+            <h3 class="section-title">搭檔配對</h3>
+            <button class="add-btn" @click="openBuddyCSVPicker">匯入名單（CSV／XLSX）</button>
+          </div>
+          <label class="switch-row">
+            <input v-model="state.enableBuddyMatching" type="checkbox" />
+            <span :title="BUDDY_MATCHING_NOTE">
+              啟用搭檔配對
+              <span class="hover-hint">懸停查看說明</span>
+            </span>
+          </label>
+          <label class="switch-row">
+            <input v-model="state.doBuddyRotate" type="checkbox" />
+            <span :title="BUDDY_ROTATE_NOTE">
+              避免與原本的搭檔重逢
+              <span class="hover-hint">懸停查看說明</span>
+            </span>
+          </label>
+
+          <div v-if="state.enableBuddyMatching" class="buddy-pref">
+            <span class="buddy-pref-title" :title="PRIORITIZE_POSITION_NOTE">
+              搭檔方位偏好
+              <span class="hover-hint">懸停查看說明</span>
+            </span>
+            <label
+              v-for="option in BUDDY_POSITION_OPTIONS"
+              :key="option.value"
+              class="buddy-pref-option"
+            >
+              <input
+                v-model="state.prioritizeBuddyPairPosition"
+                type="radio"
+                :value="option.value"
+              />
+              {{ option.label }}
+            </label>
+          </div>
+
+          <input
+            ref="buddyCSVInput"
+            type="file"
+            accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            class="buddy-csv-input"
+            @change="handleBuddyCSVChange"
+          />
+
+          <p
+            v-if="buddyImportMessage"
+            class="import-msg"
+            :class="`import-${buddyImportMessage.kind}`"
+          >
+            {{ buddyImportMessage.text }}
+          </p>
+
+          <div class="buddy-group">
+            <div class="buddy-group-header">
+              <span class="buddy-group-title">A 組（每人需有 B 組鄰座）</span>
+              <button class="add-btn add-buddy-a" @click="addBuddyName(0)">＋ 新增成員</button>
+            </div>
+            <div v-for="(_, index) in state.buddyGroups[0]" :key="index" class="buddy-row">
+              <input
+                v-model="state.buddyGroups[0][index]"
+                class="name-input"
+                list="constraint-names"
+                placeholder="A 組姓名"
+              />
+              <button
+                class="remove-btn remove-buddy-a"
+                aria-label="刪除 A 組成員"
+                @click="removeBuddyName(0, index)"
+              >
+                ✕
+              </button>
+            </div>
+            <p v-if="state.buddyGroups[0].length === 0" class="empty-hint">尚未設定 A 組成員</p>
+          </div>
+
+          <div class="buddy-group">
+            <div class="buddy-group-header">
+              <span class="buddy-group-title">B 組</span>
+              <button class="add-btn add-buddy-b" @click="addBuddyName(1)">＋ 新增成員</button>
+            </div>
+            <div v-for="(_, index) in state.buddyGroups[1]" :key="index" class="buddy-row">
+              <input
+                v-model="state.buddyGroups[1][index]"
+                class="name-input"
+                list="constraint-names"
+                placeholder="B 組姓名"
+              />
+              <button
+                class="remove-btn remove-buddy-b"
+                aria-label="刪除 B 組成員"
+                @click="removeBuddyName(1, index)"
+              >
+                ✕
+              </button>
+            </div>
+            <p v-if="state.buddyGroups[1].length === 0" class="empty-hint">尚未設定 B 組成員</p>
+          </div>
+          <p class="csv-hint">
+            名單匯入格式（CSV 需為 UTF-8；XLSX 取第一個工作表；第一欄為組別，A、B 各一列；支援
+            A類／A 等標籤）：
+          </p>
+          <pre class="csv-template">{{ BUDDY_CSV_TEMPLATE }}</pre>
+        </section>
+
         <!-- JSON 預覽 -->
         <details class="json-preview">
           <summary>JSON 預覽</summary>
           <textarea readonly class="json-textarea" :value="jsonPreview"></textarea>
           <p class="json-hint">
-            註：JSON 中的 rowIdx / colIdx 為 0-based（從 0 開始），與介面顯示的 1-based 索引相差 1。
+            註：JSON 中的 rowIdx / colIdx 為 0-based（從 0 開始），與介面顯示的 1-based 索引相差
+            1。<br />
+            buddyGroups 為 [A 組名單, B 組名單]，兩組皆空時輸出 []。
           </p>
         </details>
 
@@ -165,8 +281,9 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue';
 import type { FeasibilityReport } from '@/assets/wasm/alloc_algo';
-import type { Constraint } from '@/utils/JSONTypes';
+import type { BuddyPairPosition, Constraint, ImportedConstraint } from '@/utils/JSONTypes';
 import { useKeyboardShortcut } from '@/composables/useKeyboardShortcuts';
+import { BUDDY_CSV_TEMPLATE, readBuddyFile, type BuddyCsvResult } from '@/utils/buddyCSV.ts';
 
 const props = defineProps<{
   visible: boolean;
@@ -193,8 +310,13 @@ interface EditorState {
   allowFixedPoints: boolean;
   allowOriginalNeighbors: boolean;
   diagonalsAreNeighbors: boolean;
+  crossAisleAreNeighbors: boolean;
+  enableBuddyMatching: boolean;
+  doBuddyRotate: boolean;
+  prioritizeBuddyPairPosition: BuddyPairPosition;
   customForbiddenPairs: [string, string][];
   constraints: EditableConstraint[];
+  buddyGroups: [string[], string[]];
 }
 
 interface TestResult {
@@ -219,6 +341,38 @@ const DIAGONAL_NOTE =
   '  ①「允許與原本的鄰座相鄰」的鄰座判定（原本坐斜對角者也算鄰座）；\n' +
   '  ②「禁止配對」——被禁止配對的兩人坐在彼此的斜對角，同樣視為違反。';
 
+/** 「隔走廊相對視為相鄰」的獨立性說明（懸停 tooltip） */
+const CROSS_AISLE_NOTE =
+  '此選項獨立於「斜對角視為相鄰」，並非其附屬開關。\n' +
+  '它定義「相鄰」的範圍：隔著空行／空列（走廊）相對的位置是否算相鄰。\n' +
+  '影響：\n' +
+  '  ①「允許與原本的鄰座相鄰」——原排位隔走廊的鄰座判定；\n' +
+  '  ②「禁止配對」——隔走廊相對的兩人被禁配對時同樣視為違反；\n' +
+  '  ③「搭檔配對」——A、B 隔走廊相對時是否視為有搭檔。';
+
+const BUDDY_MATCHING_NOTE =
+  '將成員分為 A、B 兩組：啟用後 A 組每人必須與至少一位 B 組成員相鄰。\n' +
+  '「相鄰」範圍受「斜對角視為相鄰」與「隔走廊相對視為相鄰」影響。\n' +
+  '未啟用時，A／B 組名單不會產生任何約束。';
+
+const BUDDY_ROTATE_NOTE =
+  '啟用後，A 組成員不得與原排位中相鄰的 B 組成員重逢（強制換新搭檔）。\n' +
+  '與「允許與原本的鄰座相鄰」各自獨立，兩者同時影響可重逢的對象。';
+
+/** 搭檔方位偏好（soft：僅引導搜尋，不影響可解性）的懸停說明 */
+const PRIORITIZE_POSITION_NOTE =
+  '指定 A、B 搭檔的理想相對方位（soft：僅在洗牌時引導搜尋，不保證達成，也不影響可行性）。\n' +
+  '・左右相鄰：搭檔坐在同一橫排的左右鄰位；\n' +
+  '・前後相鄰：搭檔坐在同一豎排的前後鄰位；\n' +
+  '・無方位偏好：不引導方位（預設）。\n' +
+  '需先啟用「搭檔配對」才有作用。';
+
+const BUDDY_POSITION_OPTIONS: { value: BuddyPairPosition; label: string }[] = [
+  { value: 'LeftAndRight', label: '左右相鄰（同一橫排）' },
+  { value: 'FrontAndBack', label: '前後相鄰（同一豎排）' },
+  { value: 'AllAreAcceptable', label: '無方位偏好（預設）' },
+];
+
 const isPositionConstraint = (type: string): boolean =>
   type === 'FORCEROW' || type === 'FORBIDROW' || type === 'FORCECOL' || type === 'FORBIDCOL';
 
@@ -229,9 +383,23 @@ const createEmptyState = (): EditorState => ({
   allowFixedPoints: true,
   allowOriginalNeighbors: true,
   diagonalsAreNeighbors: false,
+  crossAisleAreNeighbors: true,
+  enableBuddyMatching: false,
+  doBuddyRotate: true,
+  prioritizeBuddyPairPosition: 'AllAreAcceptable',
   customForbiddenPairs: [],
   constraints: [],
+  buddyGroups: [[], []],
 });
+
+const toStringList = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((name): name is string => typeof name === 'string') : [];
+
+const parseBuddyGroups = (value: unknown): [string[], string[]] => {
+  if (!Array.isArray(value) || value.length === 0) return [[], []];
+  if (value.length === 2) return [toStringList(value[0]), toStringList(value[1])];
+  return [[], []];
+};
 
 const toEditable = (c: Constraint): EditableConstraint => {
   const type = String(c.type ?? '').toUpperCase();
@@ -258,12 +426,24 @@ const parseConfig = (json: string): EditorState => {
   try {
     const obj = JSON.parse(json) as Record<string, unknown>;
     const rawConstraints = obj.constraints as unknown[];
+    const prefPosition = obj.prioritizeBuddyPairPosition;
     return {
       allowFixedPoints: typeof obj.allowFixedPoints === 'boolean' ? obj.allowFixedPoints : true,
       allowOriginalNeighbors:
         typeof obj.allowOriginalNeighbors === 'boolean' ? obj.allowOriginalNeighbors : true,
       diagonalsAreNeighbors:
         typeof obj.diagonalsAreNeighbors === 'boolean' ? obj.diagonalsAreNeighbors : false,
+      crossAisleAreNeighbors:
+        typeof obj.crossAisleAreNeighbors === 'boolean' ? obj.crossAisleAreNeighbors : true,
+      enableBuddyMatching:
+        typeof obj.enableBuddyMatching === 'boolean' ? obj.enableBuddyMatching : false,
+      doBuddyRotate: typeof obj.doBuddyRotate === 'boolean' ? obj.doBuddyRotate : true,
+      prioritizeBuddyPairPosition:
+        prefPosition === 'LeftAndRight' ||
+        prefPosition === 'FrontAndBack' ||
+        prefPosition === 'AllAreAcceptable'
+          ? prefPosition
+          : 'AllAreAcceptable',
       customForbiddenPairs: Array.isArray(obj.customForbiddenPairs)
         ? obj.customForbiddenPairs
             .filter((p): p is [unknown, unknown] => Array.isArray(p) && p.length >= 2)
@@ -274,6 +454,7 @@ const parseConfig = (json: string): EditorState => {
             .filter((c): c is Constraint => !!c && typeof c === 'object')
             .map(toEditable)
         : [],
+      buddyGroups: parseBuddyGroups(obj.buddyGroups),
     };
   } catch {
     return createEmptyState();
@@ -283,6 +464,8 @@ const parseConfig = (json: string): EditorState => {
 const state = reactive<EditorState>(parseConfig(props.initialConfig ?? '{}'));
 const testResult = ref<TestResult | null>(null);
 const gridNoteActive = ref(false);
+const buddyCSVInput = ref<HTMLInputElement | null>(null);
+const buddyImportMessage = ref<{ kind: 'ok' | 'error'; text: string } | null>(null);
 
 const toggleGridNote = () => {
   gridNoteActive.value = !gridNoteActive.value;
@@ -295,6 +478,7 @@ watch(
       Object.assign(state, parseConfig(props.initialConfig ?? '{}'));
       testResult.value = null;
       gridNoteActive.value = false;
+      buddyImportMessage.value = null;
     }
   },
 );
@@ -305,9 +489,17 @@ const toJson = (): string =>
       allowFixedPoints: state.allowFixedPoints,
       allowOriginalNeighbors: state.allowOriginalNeighbors,
       diagonalsAreNeighbors: state.diagonalsAreNeighbors,
+      crossAisleAreNeighbors: state.crossAisleAreNeighbors,
+      enableBuddyMatching: state.enableBuddyMatching,
+      doBuddyRotate: state.doBuddyRotate,
+      prioritizeBuddyPairPosition: state.prioritizeBuddyPairPosition,
       customForbiddenPairs: state.customForbiddenPairs.map((pair) => [pair[0], pair[1]]),
       constraints: state.constraints.map(toConstraint),
-    },
+      buddyGroups:
+        state.buddyGroups[0].length === 0 && state.buddyGroups[1].length === 0
+          ? []
+          : [state.buddyGroups[0], state.buddyGroups[1]],
+    } satisfies ImportedConstraint,
     null,
     2,
   );
@@ -320,6 +512,42 @@ const addPair = () => {
 
 const removePair = (index: number) => {
   state.customForbiddenPairs.splice(index, 1);
+};
+
+const addBuddyName = (groupIndex: 0 | 1) => {
+  state.buddyGroups[groupIndex].push('');
+};
+
+const removeBuddyName = (groupIndex: 0 | 1, index: number) => {
+  state.buddyGroups[groupIndex].splice(index, 1);
+};
+
+const openBuddyCSVPicker = () => {
+  buddyCSVInput.value?.click();
+};
+
+const applyBuddyCsvResult = (result: BuddyCsvResult): boolean => {
+  if (!result.ok) {
+    buddyImportMessage.value = { kind: 'error', text: result.error };
+    return false;
+  }
+  const [groupA, groupB] = result.buddyGroups;
+  state.buddyGroups[0].splice(0, state.buddyGroups[0].length, ...groupA);
+  state.buddyGroups[1].splice(0, state.buddyGroups[1].length, ...groupB);
+  state.enableBuddyMatching = true;
+  buddyImportMessage.value = {
+    kind: 'ok',
+    text: `已匯入：A 組 ${groupA.length} 人、B 組 ${groupB.length} 人。`,
+  };
+  return true;
+};
+
+const handleBuddyCSVChange = async (event: Event) => {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = '';
+  if (!file) return;
+  applyBuddyCsvResult(await readBuddyFile(file));
 };
 
 const addConstraint = () => {
@@ -341,6 +569,7 @@ const handleCancel = () => {
 const handleReset = () => {
   if (!window.confirm('確定要清空所有約束設定嗎？此操作無法復原。')) return;
   testResult.value = null;
+  buddyImportMessage.value = null;
   Object.assign(state, createEmptyState());
 };
 
@@ -562,10 +791,125 @@ useKeyboardShortcut({ key: 'Escape' }, () => {
 }
 
 .pair-row,
+.buddy-row,
 .constraint-row {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.buddy-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  margin: 4px;
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  background: var(--bg-page);
+}
+
+.buddy-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.buddy-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.buddy-pref {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  margin: 4px;
+  border: 1px dashed var(--border-light);
+  border-radius: 10px;
+  background: var(--bg-page);
+}
+
+.buddy-pref-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  cursor: help;
+}
+
+.buddy-pref-title .hover-hint {
+  margin-left: 0;
+}
+
+.buddy-pref-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.buddy-pref-option:hover {
+  background: var(--bg-control-hover);
+}
+
+.buddy-pref-option input[type='radio'] {
+  accent-color: var(--primary);
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.buddy-csv-input {
+  display: none;
+}
+
+.import-msg {
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.import-ok {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.import-error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.csv-hint {
+  margin: 4px 0 0;
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+.csv-template {
+  margin: 4px 0 0;
+  padding: 6px 10px;
+  font-family: 'Cascadia Code', Consolas, 'Courier New', monospace;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--text-main);
+  background: var(--bg-page);
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  white-space: pre;
 }
 
 .name-input,

@@ -23,6 +23,7 @@ export function useColorConfig() {
       colorPresets.value = tempRules;
       return true;
     } catch (e) {
+      console.error(e);
       alert('JSON 顏色配置解析失敗。');
       return false;
     }
