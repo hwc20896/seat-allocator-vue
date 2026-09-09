@@ -1,6 +1,6 @@
 # BUILD.md
 
-本檔案說明如何在本機或 CI 中建置本專案的前端（npm）與 C++（native / WebAssembly）部分。若你只是想使用這個工具，請見 [README.md](README.md)。
+本檔案說明如何在本機或 CI 中建置本專案的前端（npm）與 C++（主工程編譯為 WebAssembly，另有 native 的測試／基準工程）部分。若你只是想使用這個工具，請見 [README.md](README.md)。
 
 ---
 
@@ -17,6 +17,7 @@
   - `src/`：演算法實作（header-only，C++23）
   - `tests/`：單元測試工程（GoogleTest，vcpkg 管理）
   - `benchmark/`：基準測試工程（Google Benchmark，vcpkg 管理）
+  - `benchmark/optimizing/`：實驗性超參數調優工程（Optuna，獨立 CMake 工程，見下方說明）
   - `cpp-configure.bat` / `cpp-configure.sh`：WASM 建置配置腳本
   - `cpp-build.bat` / `cpp-build.sh`：WASM 建置腳本
 - `src/assets/wasm/`：WASM 建置產出之一（`alloc_algo.js`，CMake 自動複製）
@@ -27,13 +28,13 @@
 
 ## 先決條件
 
-- CMake：主工程、`cpp/tests` 與 `cpp/benchmark` 均需 >= 3.22
+- CMake：主工程、`cpp/tests`、`cpp/benchmark` 與 `cpp/benchmark/optimizing` 均需 >= 3.22
 - emsdk：編譯 WebAssembly 需要（emscripten）
 - （選用）GoogleTest / Google Benchmark：分別用於 `cpp/tests` 單元測試與 `cpp/benchmark` 基準測試，可透過各工程的 vcpkg manifest（`vcpkg.json`）自動安裝
 
 > [!NOTE] 
 > 主演算法不依賴任何第三方 C++ 函式庫；
-> vcpkg 僅用於測試工程（`cpp/tests` 的 `gtest`、`cpp/benchmark` 的 `benchmark`）。
+> vcpkg 僅用於測試工程（`cpp/tests` 的 `gtest`、`cpp/benchmark` 的 `benchmark`）與實驗性調優工程（`cpp/benchmark/optimizing` 的 `nlohmann-json`）。
 
 ---
 
@@ -131,24 +132,25 @@ cmake --build ../algo-build --parallel
 
 - `src/assets/wasm/alloc_algo.js`（前端 import 的 JS 包裝）
 - `public/alloc_algo.wasm`（WASM binary，前端透過 base URL 載入）
+- `src/assets/wasm/alloc_algo.d.ts`（embind 產生的 TypeScript 型別宣告，會先經 `patch-dts.cmake` 修正再複製，供 IDE／型別檢查使用）
 
-無需手動搬檔；執行 `npm run build` 時兩者都會被打包進 `dist/`。
+無需手動搬檔；執行 `npm run build` 時 `.js` 與 `.wasm` 會被打包進 `dist/`，`.d.ts` 僅供開發期型別使用、不需打包。
 
 > [!NOTE] 
 > 目前 WASM 為單執行緒版本（未啟用 pthread / SharedArrayBuffer）。
 
 ---
 
-## C++：Native（選用）
+## C++：Native（已不支援）
 
-若在未啟用 Emscripten 的環境執行 CMake，工程會改為建置原生執行檔（並印出警告）。此模式僅供演算法除錯使用，產品使用的是 WASM 版本。
+主工程 `cpp/` 目前是 **WebAssembly-only**：`wasm-bridge.cpp` 是 embind bridge、沒有 `main()`，且 `cpp/CMakeLists.txt` 在未使用 Emscripten toolchain 時會直接以 `FATAL_ERROR` 中止 configure（錯誤訊息會提示改用 `cmake --preset wasm`），因此已不存在「原生執行檔」模式，也無法在本機直接以 `cmake -S . -B ...` 建置。
 
-```sh
-cd cpp
-cmake -S . -B cmake-build-native -DCMAKE_BUILD_TYPE=Release
-cmake --build cmake-build-native --parallel
-```
+如需在本機以原生方式執行／除錯演算法，請改用以下工程：
 
+- `cpp/tests/`：以 GoogleTest 原生執行單元測試（見下方「C++：單元測試」）
+- `cpp/benchmark/`：以原生執行基準測試（見「C++：基準測試」）
+
+---
 
 ## C++：單元測試（選用）
 
@@ -219,6 +221,44 @@ vcpkg install benchmark
 ```sh
 python benchmark-curve.py curve.json curve.png --show 
 python benchmark-compare.py curve.json --show
+```
+
+### 超參數調優（optimizing，實驗性）
+
+`cpp/benchmark/optimizing/` 是獨立的實驗工程，以 [Optuna](https://optuna.org/) 自動搜尋模擬退火的超參數（`initialTemperature`、`coolingRate`、`maxSteps` 等）。它不是 Google Benchmark 工程：`main.cpp` 編譯出的執行檔會在固定輸入（含搭檔配對等約束）上量測耗時並輸出 JSON，Python 調參腳本以該輸出為目標，反覆呼叫執行檔搜尋參數。
+
+> [!NOTE] 
+> 此工程需 C++23（GCC 14+ 或 Clang 18+，與 `cpp/tests` 相同）；MinGW 分支會額外連結 `-lstdc++exp`（GCC 14+ 的 libstdc++ 實驗功能庫）。
+
+目錄內容：
+
+- `main.cpp`：調優用基準程式，支援 `--mode=fixed|dynamic`（固定參數／隨輸入規模調整的自適應公式）與 `--params=<JSON>`，輸出加權平均耗時、平均步數與錯誤率
+- `tune-alpha.py` / `fix-tuning.py` / `dynamic-tuning.py`：Optuna 調參腳本（分別探索 alpha 極限、fixed 模式與 dynamic 模式的參數），結果圖存為 PNG
+- `pyproject.toml` / `uv.lock`：Python 依賴以 uv 管理（Python >= 3.14，`optuna`、`matplotlib`）
+- `vcpkg.json`：C++ 依賴 `nlohmann-json`（preset 透過 `$env{VCPKG_ROOT}` 指定工具鏈）
+
+建置執行檔（需先設定 `VCPKG_ROOT`；編譯器需支援 C++23）：
+
+```sh
+cd cpp/benchmark/optimizing
+cmake --preset release    # Ninja + vcpkg，產出至 build/
+cmake --build build --parallel
+```
+
+手動執行（Windows 執行檔為 `build\algo_optimizing.exe`；`--params` 請用單引號包住 JSON，避免 shell 把花括號當成特殊字元）：
+
+```sh
+./build/algo_optimizing.exe --mode=fixed --params='{"T0": 5.0, "alpha": 0.999, "maxSteps": 350000}'
+./build/algo_optimizing.exe --mode=dynamic --params='{"min_step": 50000, "size_mul": 300, "alpha": 0.99}'
+```
+
+執行 Optuna 調參（腳本目前以 Windows 路徑 `./build/algo_optimizing.exe` 呼叫執行檔）：
+
+```sh
+uv sync                        # 建立 .venv 並安裝 optuna、matplotlib
+uv run python fix-tuning.py         # Fixed 模式（50 trials）
+uv run python dynamic-tuning.py     # Dynamic 模式（100 trials）
+uv run python tune-alpha.py         # alpha 一維探索（300 trials）
 ```
 
 ---
