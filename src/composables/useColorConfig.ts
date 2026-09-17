@@ -1,4 +1,5 @@
 import { ref } from 'vue';
+import { extractDisplayName } from '@/utils/gridUtils.ts';
 
 export interface ColorPreset {
   pattern: RegExp;
@@ -30,9 +31,10 @@ export function useColorConfig() {
   };
 
   const getCellColor = (text: string): string => {
-    if (!text) return '#94a3b8';
+    const target = extractDisplayName(text);
+    if (!target) return '#94a3b8';
     for (const preset of colorPresets.value) {
-      if (preset.pattern.test(text)) {
+      if (preset.pattern.test(target)) {
         return preset.color;
       }
     }

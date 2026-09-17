@@ -1,12 +1,13 @@
 <template>
   <div class="cell-content" :class="contentClass" @click="$emit('click')">
-    <span class="cell-icon" v-if="text.length > 0">🪑</span>
-    <span class="cell-text" :style="cellStyle" :title="text">{{ text || '空位' }}</span>
+    <span class="cell-icon" v-if="displayText.length > 0">🪑</span>
+    <span class="cell-text" :style="cellStyle" :title="text">{{ displayText || '空位' }}</span>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { extractDisplayName } from '@/utils/gridUtils.ts';
 
 const props = defineProps<{
   text: string;
@@ -21,11 +22,13 @@ defineEmits<{
   click: [];
 }>();
 
+const displayText = computed(() => extractDisplayName(props.text));
+
 const contentClass = computed(() => {
   const classes: string[] = [];
   if (props.isTagged) classes.push('tagged');
   if (props.isSwapped) classes.push('swapped');
-  if (!props.text) classes.push('empty-element');
+  if (!displayText.value) classes.push('empty-element');
   if (props.isCurrentlyOriginal) classes.push('original-view');
   if (props.isShuffling) classes.push('shuffling');
   return classes;
