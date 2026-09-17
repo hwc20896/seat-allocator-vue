@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <chrono>
 #include <expected>
-#include <future>
 #include <numeric>
 #include <random>
 #include <ranges>

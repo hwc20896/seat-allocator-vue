@@ -259,7 +259,7 @@ inline const std::vector<std::string>& Grid::rawData() const noexcept {
 }
 
 inline int64_t Grid::nonEmptyCount() const noexcept {
-    return std::ranges::count_if(data_, [](const std::string& cell) { return !cell.empty(); });
+    return std::ranges::count_if(data_, std::not_fn(&std::string::empty));
 }
 
 inline Grid Grid::clone() const noexcept {
@@ -274,11 +274,7 @@ inline std::string Grid::toCSVString() const {
         for (int c = 0; c < cols_; ++c) {
             const std::string& cell = (*this)[r, c];
 
-            if (
-                std::ranges::any_of(std::array{',', '"', '\n'}, [&cell](const char ch) {
-                    return cell.contains(ch);
-                })  //  needs quoting
-            ) {
+            if (cell.find_first_of(",\"\n") != std::string::npos) {  //  needs quoting
                 result += '"';
                 for (const char ch : cell) {
                     if (ch == '"')
