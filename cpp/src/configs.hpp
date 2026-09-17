@@ -119,10 +119,13 @@ struct ShuffleConfig {
         return *this;
     }
 
-    constexpr ShuffleConfig& setBuddyGroups(const std::vector<std::string>& group1, const std::vector<std::string>& group2) {
-        const auto paired = std::make_pair(group1, group2);
-        if (this->buddyGroups == paired) return *this;
-        this->buddyGroups = paired;
+    constexpr ShuffleConfig& setBuddyGroups(
+        const std::vector<std::string>& group1, const std::vector<std::string>& group2
+    ) {
+        if (this->buddyGroups.first == group1 && this->buddyGroups.second == group2) {
+            return *this;
+        }
+        this->buddyGroups = std::make_pair(group1, group2);
         return *this;
     }
 
