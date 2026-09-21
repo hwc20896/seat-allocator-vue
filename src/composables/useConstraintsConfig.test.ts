@@ -214,9 +214,9 @@ describe('useConstraintsConfig', () => {
       setPrioritizeBuddyPairPosition = setPrioritizeSpy;
     }
     const { loadConstraints, buildWasmConfig } = useConstraintsConfig();
-    expect(
-      loadConstraints(JSON.stringify({ prioritizeBuddyPairPosition: 'DiagonalOnly' })),
-    ).toBe(true);
+    expect(loadConstraints(JSON.stringify({ prioritizeBuddyPairPosition: 'DiagonalOnly' }))).toBe(
+      true,
+    );
     buildWasmConfig({ ShuffleConfig: FakeShuffleConfig } as never);
     expect(setPrioritizeSpy).not.toHaveBeenCalled();
   });
