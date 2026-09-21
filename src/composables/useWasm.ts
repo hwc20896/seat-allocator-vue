@@ -1,10 +1,9 @@
-import { ref, shallowRef, onBeforeUnmount } from 'vue';
+import { ref, shallowRef } from 'vue';
 import initWasmModule from '@/assets/wasm/alloc_algo.js';
-import type { GridShuffler, MainModule } from '@/assets/wasm/alloc_algo';
+import type { MainModule } from '@/assets/wasm/alloc_algo';
 
 const wasmModule = shallowRef<MainModule | null>(null); //  const auto wasmModule = shallowRef<ModuleExports*>(nullptr);
 
-const shufflerInstance = shallowRef<GridShuffler | null>(null);
 const wasmReady = ref(false);
 
 export function useWasm() {
@@ -24,22 +23,9 @@ export function useWasm() {
     }
   };
 
-  const cleanup = () => {
-    if (shufflerInstance.value) {
-      shufflerInstance.value.delete();
-      shufflerInstance.value = null;
-    }
-  };
-
-  onBeforeUnmount(() => {
-    cleanup();
-  });
-
   return {
     wasmModule,
-    shufflerInstance,
     wasmReady,
     initWasm,
-    cleanup,
   };
 }
