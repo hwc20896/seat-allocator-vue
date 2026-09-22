@@ -112,7 +112,12 @@ const handleShuffle = (requestId: number, configJson: string): void => {
     console.error('shuffle failed:', error);
     aborted = postFatalIfAborted(error);
     if (!aborted) {
-      scope.postMessage({ type: 'shuffleResult', requestId, success: false, error: 'InternalError' });
+      scope.postMessage({
+        type: 'shuffleResult',
+        requestId,
+        success: false,
+        error: 'InternalError',
+      });
     }
   } finally {
     //  釋放 embind 句柄；abort 後 runtime 已不可用，跳過以免二次拋錯
