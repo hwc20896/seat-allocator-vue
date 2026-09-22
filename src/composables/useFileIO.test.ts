@@ -69,7 +69,7 @@ describe('useFileIO', () => {
   it('generateXLSXBuffer 產出可讀回的 ArrayBuffer', async () => {
     const { generateXLSXBuffer, parseXLSX } = setup();
     const grid = new FakeGrid(2, 2, ['a', 'b', 'c', 'd']);
-    const buffer = generateXLSXBuffer(grid);
+    const buffer = await generateXLSXBuffer(grid);
     expect(buffer).toBeInstanceOf(ArrayBuffer);
     const parsed = await parseXLSX(new File([buffer], 'out.xlsx'));
     expect(parsed.getByPos(1, 1)).toBe('d');

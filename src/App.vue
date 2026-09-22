@@ -235,7 +235,7 @@ const handleGridExport = async () => {
     const writable = await fileHandle.createWritable();
 
     if (actualFileName.endsWith('.xlsx')) {
-      const excelData = fileIO.generateXLSXBuffer(grid.currentGrid.value!);
+      const excelData = await fileIO.generateXLSXBuffer(grid.currentGrid.value!);
       await writable.write(excelData);
       statusText.value = `已成功匯出 Excel：${actualFileName}`;
     } else if (actualFileName.endsWith('.csv')) {
