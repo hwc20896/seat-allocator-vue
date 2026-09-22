@@ -65,7 +65,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 
 import AppHeader from '@/components/layout/AppHeader.vue';
 import AppFooter from '@/components/layout/AppFooter.vue';
@@ -76,6 +76,7 @@ import ConstraintsEditor from '@/components/constraints/ConstraintsEditor.vue';
 
 import { useWasm } from '@/composables/useWasm';
 import { useGridShuffle } from '@/composables/useGridShuffle';
+import { useShuffleWorker } from '@/composables/useShuffleWorker';
 import { useColorConfig } from '@/composables/useColorConfig';
 import { useConstraintsConfig } from '@/composables/useConstraintsConfig';
 import { useFileIO } from '@/composables/useFileIO';
@@ -90,8 +91,12 @@ import { Position } from '@/utils/Position.ts';
 // ==========================================
 const wasm = useWasm();
 const constraints = useConstraintsConfig();
-const grid = useGridShuffle(wasm.wasmModule, wasm.wasmReady, wasm.shufflerInstance, () =>
-  constraints.buildWasmConfig(wasm.wasmModule.value),
+const shuffleWorker = useShuffleWorker();
+const grid = useGridShuffle(
+  wasm.wasmModule,
+  wasm.wasmReady,
+  shuffleWorker,
+  () => constraints.currentConfigJson.value,
 );
 const colorConfig = useColorConfig();
 const fileIO = useFileIO(wasm.wasmModule);
@@ -105,6 +110,13 @@ const appVersion = __APP_VERSION__;
 const statusText = ref('未導入');
 const isOriginal = ref(false);
 const isConstraintsEditorOpen = ref(false);
+
+// Worker 引擎整體失敗（wasm 載入失敗或 abort 崩潰）時在狀態欄提示
+watch(shuffleWorker.fatalError, (message) => {
+  if (!message) return;
+  console.error('Shuffle worker fatal error:', message);
+  statusText.value = '洗牌引擎載入失敗，請重新載入頁面。';
+});
 
 // Tagged cell for swap interaction
 const taggedCell = ref<Position | null>(null);
@@ -158,7 +170,7 @@ const handleCSVImport = async (file: File) => {
     const text = await fileIO.readTextFile(file);
     const parsed = wasm.wasmModule.value!.Grid.fromCSV(text);
     if (parsed.empty()) return;
-    const success = grid.loadNewGrid(parsed);
+    const success = await grid.loadNewGrid(parsed);
     if (!success) return;
     taggedCell.value = null;
     statusText.value = `已成功導入檔案：${file.name}`;
@@ -174,7 +186,7 @@ const handleXLSXImport = async (file: File) => {
   try {
     const parsed = await fileIO.parseXLSX(file);
     if (parsed.empty()) return;
-    const success = grid.loadNewGrid(parsed);
+    const success = await grid.loadNewGrid(parsed);
     if (!success) return;
     taggedCell.value = null;
     statusText.value = `已成功導入檔案：${file.name}`;
@@ -223,7 +235,7 @@ const handleGridExport = async () => {
     const writable = await fileHandle.createWritable();
 
     if (actualFileName.endsWith('.xlsx')) {
-      const excelData = fileIO.generateXLSXBuffer(grid.currentGrid.value!);
+      const excelData = await fileIO.generateXLSXBuffer(grid.currentGrid.value!);
       await writable.write(excelData);
       statusText.value = `已成功匯出 Excel：${actualFileName}`;
     } else if (actualFileName.endsWith('.csv')) {
@@ -275,10 +287,9 @@ const handleConstraintsImport = async (file: File) => {
       statusText.value = `算法約束載入成功：${file.name}。`;
 
       // Try to apply constraints immediately if wasm is ready
-      if (wasm.wasmReady.value && typeof grid.applyConfig === 'function') {
-        const cfg = constraints.buildWasmConfig(wasm.wasmModule.value);
-        const applied = grid.applyConfig(cfg);
-        if (await applied) {
+      if (wasm.wasmReady.value) {
+        const applied = await grid.applyConfig();
+        if (applied) {
           statusText.value += ' 已套用約束。';
         } else {
           statusText.value += ' 套用約束失敗，請重新導入座位配置或手動洗牌。';
@@ -304,9 +315,8 @@ const handleConstraintsApply = async (json: string) => {
   statusText.value = `約束已更新。`;
 
   // Apply constraints immediately if wasm is ready
-  if (wasm.wasmReady.value && typeof grid.applyConfig === 'function') {
-    const cfg = constraints.buildWasmConfig(wasm.wasmModule.value);
-    const applied = await grid.applyConfig(cfg);
+  if (wasm.wasmReady.value) {
+    const applied = await grid.applyConfig();
     if (applied) {
       statusText.value += ' 已套用約束。';
     } else {

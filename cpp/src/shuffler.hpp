@@ -8,6 +8,7 @@
 #include <ranges>
 #include <unordered_map>
 #include <utility>
+#include <functional>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
@@ -43,7 +44,7 @@ class GridShuffler final {
         [[nodiscard]]
         size_t getShuffledGridCount() const noexcept;
 
-        void setSeed(const uint32_t seed) const { rng = std::mt19937{seed}; }
+        void setSeed(const uint32_t seed) { rng.seed(seed); }
 
         bool setGrid(const Grid& grid);
 
@@ -63,6 +64,7 @@ class GridShuffler final {
         [[nodiscard]]
         const Grid& getGrid(int index) const;
 
+        [[nodiscard]]
         std::expected<ResultType, ShuffleError> shuffle();
 
         [[nodiscard]]
@@ -112,7 +114,7 @@ class GridShuffler final {
 
         ArrayOf<ValueID> allElements_;
 
-        mutable std::mt19937 rng;
+        std::mt19937 rng;
 
         //  ISSUE #6
         DynamicBitset isGroupA_, isGroupB_;
@@ -391,11 +393,6 @@ inline std::expected<ResultType, ShuffleError> GridShuffler::shuffle() {
         if (step >= annealingConfig_.maxSteps && hardEnergyOf() == 0) {
             return emitSuccess(step);
         }
-#ifdef __EMSCRIPTEN__
-        if (attempt % 200 == 0) {
-            emscripten_sleep(0);
-        }
-#endif
     }
     return std::unexpected(ShuffleError::MaxAttemptsReached);
 }
@@ -601,19 +598,16 @@ inline void GridShuffler::rebuildConstraints() {
     if (config_.enableBuddyMatching) {
         const auto& [namesA, namesB] = config_.buddyGroups;
 
-        // 1. 正常載入 A 群名單
-        for (const auto& name : namesA) {
-            if (auto it = stringToID_.find(name); it != stringToID_.end()) {
-                isGroupA_.set(it->second, true);
+        const auto loadGroup = [this](const std::vector<std::string>& names, DynamicBitset& group) {
+            for (const auto& name : names) {
+                if (auto it = stringToID_.find(name); it != stringToID_.end()) {
+                    group.set(it->second, true);
+                }
             }
-        }
+        };
 
-        // 2. 正常載入 B 群名單
-        for (const auto& name : namesB) {
-            if (auto it = stringToID_.find(name); it != stringToID_.end()) {
-                isGroupB_.set(it->second, true);
-            }
-        }
+        loadGroup(namesA, isGroupA_);
+        loadGroup(namesB, isGroupB_);
 
         const DynamicBitset overlap = isGroupA_ & isGroupB_;
 

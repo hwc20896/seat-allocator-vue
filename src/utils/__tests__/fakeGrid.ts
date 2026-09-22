@@ -74,6 +74,16 @@ export class FakeStringVector implements StringVector {
 export class FakeGrid implements Grid {
   private data: string[][];
 
+  /** 簡化版 CSV 解析（測試資料不含跳脫字元），對應真實 Grid.fromCSV 的靜態方法 */
+  static fromCSV(csv: string): FakeGrid {
+    const rows = csv
+      .split('\n')
+      .map((line) => line.replace(/\r$/, ''))
+      .filter((line) => line.length > 0)
+      .map((line) => line.split(','));
+    return new FakeGrid(rows);
+  }
+
   constructor(
     rowsOrData: number | string[][] = 0,
     cols = 0,

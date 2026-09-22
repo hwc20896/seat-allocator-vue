@@ -1,5 +1,3 @@
-import * as XLSX from '@e965/xlsx';
-
 export const BUDDY_CSV_TEMPLATE = 'A組, 姓名1, 姓名2, …\nB組, 姓名1, 姓名2, …';
 
 export interface BuddyCSVSuccess {
@@ -128,8 +126,16 @@ export const parseBuddyCSV = (text: string): BuddyCsvResult =>
   parseBuddyRows(parseCSVRows(text.replace(/^\uFEFF/, '')));
 
 /** XLSX 入口：取第一個工作表轉二維陣列後進語義層；任何失敗都回傳錯誤而非拋出 */
-export const parseBuddyXLSX = (file: File): Promise<BuddyCsvResult> =>
-  new Promise((resolve) => {
+export const parseBuddyXLSX = async (file: File): Promise<BuddyCsvResult> => {
+  let XLSX: typeof import('@e965/xlsx');
+
+  try {
+    XLSX = await import('@e965/xlsx');
+  } catch {
+    return { ok: false, error: '無法載入 Excel 解析模組，請確認網路連線後重試。' };
+  }
+
+  return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = () => {
       try {
@@ -145,6 +151,7 @@ export const parseBuddyXLSX = (file: File): Promise<BuddyCsvResult> =>
     reader.onerror = () => resolve({ ok: false, error: '讀取檔案失敗，請確認檔案可讀取。' });
     reader.readAsArrayBuffer(file);
   });
+};
 
 /** 依副檔名分流：XLSX／XLS 走工作表解析，其餘視為 CSV 文字 */
 export const readBuddyFile = (file: File): Promise<BuddyCsvResult> =>

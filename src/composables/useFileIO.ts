@@ -1,6 +1,7 @@
-import * as XLSX from '@e965/xlsx';
 import type { Grid, MainModule } from '@/assets/wasm/alloc_algo';
 import type { ShallowRef } from 'vue';
+
+const loadXLSX = () => import('@e965/xlsx');
 
 export function useFileIO(wasmModule: ShallowRef<MainModule | null>) {
   const readTextFile = (file: File): Promise<string> => {
@@ -15,8 +16,10 @@ export function useFileIO(wasmModule: ShallowRef<MainModule | null>) {
   const parseXLSX = (file: File): Promise<Grid> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         try {
+          const XLSX = await loadXLSX();
+
           const data = reader.result as ArrayBuffer;
           const wb = XLSX.read(data, { type: 'array' });
           const firstSheetName = wb.SheetNames[0];
@@ -53,7 +56,9 @@ export function useFileIO(wasmModule: ShallowRef<MainModule | null>) {
     });
   };
 
-  const generateXLSXBuffer = (grid: Grid): ArrayBuffer => {
+  const generateXLSXBuffer = async (grid: Grid): Promise<ArrayBuffer> => {
+    const XLSX = await loadXLSX();
+
     const rowCount = grid.rowCount();
     const colCount = grid.colCount();
 

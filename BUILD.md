@@ -76,6 +76,9 @@ npm run lint          # 程式碼檢查（oxlint + eslint）
 npm run format        # 格式化（prettier）
 ```
 
+> [!NOTE]
+> 尚未建置 WASM 時，`npm run test:unit` 會自動產生 `src/assets/wasm/alloc_algo.js` 樁檔，讓測試得以解析 import；`npm run build`（型別檢查 + 打包）則必須先完成 WASM 建置。
+
 ---
 
 ## C++：編譯 WebAssembly（主要目標）
@@ -276,6 +279,7 @@ uv run python tune-alpha.py         # alpha 一維探索（300 trials）
 - `unit-test.yml`：於 PR（`pull_request`）與 push 到 `master` 時執行單元測試，包含兩個並行 job：
   1. 前端：`npm ci` 後執行 `npm run test:unit:ci`（Vitest 單次執行模式）
   2. 演算法：`cpp/tests` 以 vcpkg + CMake preset 建置 GoogleTest，並以 `ctest` 執行
+- `build.yml`：於 PR（`pull_request`）與手動觸發（`workflow_dispatch`）時驗證完整建置（僅檢查、不部署），步驟與 `deploy.yml` 相同：安裝 Emscripten 並在 `cpp/` 建置 WASM、`npm ci` 後執行 `npm run build`，最後確認 `dist/` 產物（`index.html`、`alloc_algo.wasm`）存在
 
 ---
 

@@ -47,4 +47,6 @@ src/__test_datas__/*
 algo-build/
 vcpkg-installed/
 CMakeUserPresets.json
+
 src/assets/wasm/alloc_algo.d.ts
+*.patch

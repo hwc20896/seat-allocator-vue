@@ -1,14 +1,16 @@
 import { computed, ref, type Ref, type ShallowRef, shallowRef, watch } from 'vue';
-import type { MainModule, GridShuffler, ShuffleConfig, Grid } from '@/assets/wasm/alloc_algo';
+import type { MainModule, Grid } from '@/assets/wasm/alloc_algo';
 import { getShuffleErrorMessage } from '@/utils/shuffleError.ts';
 import { swap, Position } from '@/utils/Position.ts';
 import { shuffle } from 'lodash-es';
+import { buildWasmConfigFromJson } from '@/utils/wasmConfig.ts';
+import { ShuffleWorkerUnavailableError, type ShuffleWorkerClient } from './useShuffleWorker';
 
 export function useGridShuffle(
   wasmModule: ShallowRef<MainModule | null>,
   wasmReady: Ref<boolean>,
-  shufflerInstance: ShallowRef<GridShuffler | null>,
-  getShuffleConfig?: () => ShuffleConfig | null,
+  shuffleWorker: ShuffleWorkerClient,
+  getConfigJson?: () => string,
 ) {
   const originalGrid = shallowRef<Grid | null>(null);
   const currentGrid = shallowRef<Grid | null>(null);
@@ -17,6 +19,11 @@ export function useGridShuffle(
   const isShuffling = ref(false);
   const showOriginal = ref(false);
   const manuallyModifiedGrids = shallowRef<Record<number, Grid>>({});
+
+  // Worker 每次 shuffle 的結果（等價於 C++ GridShuffler 內部的 shuffleGrids_）
+  let shuffledHistory: Grid[] = [];
+  // 每次載入新 grid 遞增；非同步結果回來時若 epoch 已變，該結果屬於舊 grid，直接丟棄
+  let epoch = 0;
 
   const isGridLoaded = computed(() => !!originalGrid.value && !originalGrid.value?.empty());
 
@@ -38,32 +45,28 @@ export function useGridShuffle(
     return `第 ${currentIndex.value} 次分配`;
   });
 
-  const loadNewGrid = (grid: Grid) => {
+  const releaseShuffledHistory = () => {
+    for (const grid of shuffledHistory) grid.delete();
+    shuffledHistory = [];
+  };
+
+  const loadNewGrid = async (grid: Grid): Promise<boolean> => {
     if (!wasmModule.value) return false;
 
+    const myEpoch = ++epoch;
+    isShuffling.value = false;
+    releaseShuffledHistory();
+
     try {
-      if (shufflerInstance.value) {
-        shufflerInstance.value.delete();
-      }
-
-      let config: ShuffleConfig | null;
-      try {
-        config = getShuffleConfig ? getShuffleConfig() : null;
-      } catch (e) {
-        console.warn('getShuffleConfig factory threw', e);
-        config = null;
-      }
-
-      const cfg = config ?? new wasmModule.value.ShuffleConfig();
-      shufflerInstance.value = new wasmModule.value.GridShuffler();
-
-      shufflerInstance.value.setConfig(cfg);
-
-      const success = shufflerInstance.value.setGrid(grid);
-
+      // embind 句柄無法跨執行緒，以 CSV 傳給 Worker 重建
+      const { ok, reason } = await shuffleWorker.setGrid(grid.toCSVString());
       console.debug('setGrid done.');
-      if (!success) {
-        alert('C++ shuffler failed to parse grid dimensions.');
+
+      if (myEpoch !== epoch) return false;
+
+      if (!ok) {
+        console.warn('setGrid failed:', reason);
+        alert('洗牌引擎無法載入此座位表。');
         return false;
       }
 
@@ -76,8 +79,14 @@ export function useGridShuffle(
 
       return true;
     } catch (e: unknown) {
-      console.error(e);
-      alert('導入配置失敗，檔案可能含有重複元素。');
+      if (myEpoch === epoch) {
+        console.error(e);
+        if (e instanceof ShuffleWorkerUnavailableError) {
+          alert(`洗牌引擎無法使用，請重新載入頁面。\n原因：${e.reason}`);
+        } else {
+          alert('導入配置失敗，檔案可能含有重複元素。');
+        }
+      }
       return false;
     }
   };
@@ -87,9 +96,11 @@ export function useGridShuffle(
     return maxDelay - normalized * (maxDelay - minDelay);
   };
 
-  const beginShuffleAnimation = async () => {
-    if (!shufflerInstance.value || !wasmModule.value || isShuffling.value) return false;
+  const beginShuffleAnimation = async (): Promise<boolean> => {
+    const module = wasmModule.value;
+    if (!module || !isGridLoaded.value || isShuffling.value) return false;
 
+    const myEpoch = epoch;
     isShuffling.value = true;
     showOriginal.value = false;
 
@@ -114,39 +125,61 @@ export function useGridShuffle(
     };
 
     try {
-      const shuffleResult = await shufflerInstance.value.shuffle();
+      let configJson: string;
+      try {
+        configJson = getConfigJson ? getConfigJson() : '{}';
+      } catch (e) {
+        console.warn('getConfigJson factory threw', e);
+        configJson = '{}';
+      }
 
-      if (!shuffleResult.success) {
-        console.warn(`Shuffle failed: ${shuffleResult.error}`);
-        alert(getShuffleErrorMessage(shuffleResult.error));
+      const result = await shuffleWorker.shuffle(configJson);
+      if (myEpoch !== epoch) return false;
+
+      if (!result.success) {
+        console.warn(`Shuffle failed: ${result.error}`);
+        alert(getShuffleErrorMessage(result.error));
         return false;
       }
-      console.info(`Shuffle done in ${shuffleResult.tookMUS / 1000}ms.`);
+      console.info(`Shuffle done in ${result.report.tookMUS / 1000}ms.`);
 
-      let localAnimGrid = originalGrid.value?.clone();
+      const resultGrid = module.Grid.fromCSV(result.gridCsv);
+      shuffledHistory.push(resultGrid);
+
+      let localAnimGrid = originalGrid.value?.clone() ?? resultGrid;
 
       for (let step = 0; step < shuffleCount; step++) {
+        if (myEpoch !== epoch) return false;
+
         const progress = step / shuffleCount;
         const currentDelay = getDelayForProgress(progress, minDelay, maxDelay);
 
-        localAnimGrid = getAnimationGrid(localAnimGrid!);
+        localAnimGrid = getAnimationGrid(localAnimGrid);
         currentGrid.value = localAnimGrid;
 
         await new Promise((resolve) => setTimeout(resolve, currentDelay));
       }
 
-      currentGrid.value = shufflerInstance.value.getGrid();
-      totalPages.value = shufflerInstance.value.getShuffledGridCount();
+      currentGrid.value = resultGrid;
+      totalPages.value = shuffledHistory.length;
       currentIndex.value = totalPages.value;
 
       return true;
     } catch (error: unknown) {
-      alert('洗牌算法解決失敗！請檢查約束是否互相衝突。');
-      console.error(error);
-      currentGrid.value = originalGrid.value;
+      if (myEpoch === epoch) {
+        console.error(error);
+        if (error instanceof ShuffleWorkerUnavailableError) {
+          alert(`洗牌引擎無法使用，請重新載入頁面。\n原因：${error.reason}`);
+        } else {
+          alert('洗牌算法解決失敗！請檢查約束是否互相衝突。');
+        }
+        currentGrid.value = originalGrid.value;
+      }
       return false;
     } finally {
-      isShuffling.value = false;
+      if (myEpoch === epoch) {
+        isShuffling.value = false;
+      }
     }
   };
 
@@ -158,8 +191,9 @@ export function useGridShuffle(
 
     if (manuallyModifiedGrids.value[target]) {
       currentGrid.value = manuallyModifiedGrids.value[target];
-    } else if (shufflerInstance.value) {
-      currentGrid.value = shufflerInstance.value.getGridAt(target - 1);
+    } else {
+      const pristineGrid = shuffledHistory[target - 1];
+      if (pristineGrid) currentGrid.value = pristineGrid;
     }
   };
 
@@ -188,14 +222,15 @@ export function useGridShuffle(
   };
 
   const isCellManuallyModified = (pos: Position): boolean => {
-    if (showOriginal.value || !shufflerInstance.value || currentIndex.value <= 0) {
+    if (showOriginal.value || currentIndex.value <= 0) {
       return false;
     }
 
+    const pristineGrid = shuffledHistory[currentIndex.value - 1];
+    if (!pristineGrid) return false;
+
     try {
-      const pristineGrid = shufflerInstance.value.getGridAt(currentIndex.value - 1);
       return (
-        pristineGrid &&
         pristineGrid.getByPos(pos.row, pos.col) !== currentGrid.value?.getByPos(pos.row, pos.col)
       );
     } catch (e) {
@@ -204,50 +239,45 @@ export function useGridShuffle(
     }
   };
 
-  const applyConfig = async (cfg?: ShuffleConfig | null) => {
+  const applyConfig = async (configJson?: string): Promise<boolean> => {
     if (!wasmModule.value) {
       alert('WebAssembly 模組未就緒，無法套用約束。');
       return false;
     }
 
-    const cfgInstance = cfg ?? (getShuffleConfig ? getShuffleConfig() : null);
-    if (!cfgInstance) return false;
-
-    if (!originalGrid.value || originalGrid.value.empty()) {
-      try {
-        if (!shufflerInstance.value) {
-          shufflerInstance.value = new wasmModule.value.GridShuffler();
-        }
-        shufflerInstance.value.setConfig(cfgInstance);
-        return true;
-      } catch (e) {
-        console.error(e);
-        alert('套用約束失敗。');
+    let json: string;
+    try {
+      if (configJson !== undefined) {
+        json = configJson;
+      } else if (getConfigJson) {
+        json = getConfigJson();
+      } else {
         return false;
       }
+    } catch (e) {
+      console.warn('getConfigJson factory threw', e);
+      return false;
     }
 
     try {
-      if (!shufflerInstance.value) {
-        shufflerInstance.value = new wasmModule.value.GridShuffler();
-        shufflerInstance.value.setGrid(originalGrid.value);
-      }
-
-      shufflerInstance.value.setConfig(cfgInstance);
-
-      // 保留已有的打亂結果，但提醒用戶
-      if (totalPages.value > 0) {
-        alert(
-          '約束已套用，但現有的分配結果是基於舊約束產生的，可能不完全滿足新約束。建議重新洗牌以獲得符合新約束的分配結果。',
-        );
-      }
-
-      return true;
+      // 構建並釋放一次以驗證 JSON 可套用；實際套用發生在 Worker 的每次 shuffle 中
+      const cfg = buildWasmConfigFromJson(wasmModule.value, json);
+      if (!cfg) return false;
+      cfg.delete();
     } catch (e) {
       console.error('applyConfig failed', e);
       alert('套用約束失敗。');
       return false;
     }
+
+    // 保留已有的打亂結果，但提醒用戶
+    if (totalPages.value > 0) {
+      alert(
+        '約束已套用，但現有的分配結果是基於舊約束產生的，可能不完全滿足新約束。建議重新洗牌以獲得符合新約束的分配結果。',
+      );
+    }
+
+    return true;
   };
 
   return {

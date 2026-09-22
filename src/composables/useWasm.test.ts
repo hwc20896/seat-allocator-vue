@@ -1,6 +1,4 @@
 // src/composables/useWasm.test.ts
-import { mount } from '@vue/test-utils';
-import { defineComponent } from 'vue';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useWasm } from './useWasm';
 
@@ -12,10 +10,9 @@ vi.mock('@/assets/wasm/alloc_algo.js', () => ({
 describe('useWasm', () => {
   beforeEach(() => {
     initWasmModuleMock.mockReset();
-    const { wasmReady, wasmModule, shufflerInstance } = useWasm();
+    const { wasmReady, wasmModule } = useWasm();
     wasmReady.value = false;
     wasmModule.value = null;
-    shufflerInstance.value = null;
   });
 
   afterEach(() => {
@@ -48,38 +45,5 @@ describe('useWasm', () => {
       `${import.meta.env.BASE_URL}alloc_algo.wasm`,
     );
     expect(capturedLocateFile?.('other.js')).toBe('other.js');
-  });
-
-  it('cleanup 刪除 shuffler 實例', () => {
-    const { cleanup, shufflerInstance } = useWasm();
-    const deleteSpy = vi.fn();
-    shufflerInstance.value = { delete: deleteSpy } as never;
-    cleanup();
-    expect(deleteSpy).toHaveBeenCalled();
-    expect(shufflerInstance.value).toBeNull();
-  });
-
-  it('元件 unmount 時自動 cleanup', () => {
-    const deleteSpy = vi.fn();
-    const { shufflerInstance } = useWasm();
-    shufflerInstance.value = { delete: deleteSpy } as never;
-
-    const TestComp = defineComponent({
-      setup() {
-        useWasm();
-        return () => null;
-      },
-    });
-    const wrapper = mount(TestComp);
-    wrapper.unmount();
-
-    expect(deleteSpy).toHaveBeenCalled();
-    expect(shufflerInstance.value).toBeNull();
-  });
-
-  it('cleanup 在 shuffler 為 null 時安全執行', () => {
-    const { cleanup, shufflerInstance } = useWasm();
-    shufflerInstance.value = null;
-    expect(() => cleanup()).not.toThrow();
   });
 });

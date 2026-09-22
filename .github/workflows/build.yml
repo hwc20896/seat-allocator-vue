@@ -1,0 +1,54 @@
+name: Build Check
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup Emscripten EMSDK
+        uses: emscripten-core/setup-emsdk@v16
+        with:
+          version: 6.0.0
+          actions-cache-folder: emsdk-cache
+
+      - name: CMake configure & build WASM
+        working-directory: cpp
+        run: |
+          emcc -v
+          emcmake cmake --preset wasm
+          cmake --build --preset wasm -j$(nproc)
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Type-check & Vite build (npm run build)
+        run: npm run build
+
+      - name: Verify dist output
+        run: |
+          missing=0
+          for f in dist/index.html dist/alloc_algo.wasm; do
+            if [ -f "$f" ]; then
+              echo "OK   $f"
+            else
+              echo "::error::missing build output: $f"
+              missing=1
+            fi
+          done
+          exit "$missing"

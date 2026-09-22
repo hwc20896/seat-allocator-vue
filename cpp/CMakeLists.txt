@@ -26,8 +26,8 @@ if(EMSCRIPTEN)
         "-sEXPORT_ES6=1"
         "-sASSERTIONS=1" # Useful for debugging crashes
         "-lembind"        # Required for embind support
-        "-sASYNCIFY_STACK_SIZE=262144"  # 256kB
-        "-sASYNCIFY"
+        "-sENVIRONMENT=web,worker"
+        "-sALLOW_MEMORY_GROWTH=1" # Grow the heap at runtime; large grids exceed the default 16 MiB
         "--emit-tsd" "${CMAKE_CURRENT_BINARY_DIR}/alloc_algo.d.ts"
     )
 
